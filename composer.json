@@ -4,7 +4,7 @@
     "keywords": ["mesosfer"],
     "type": "library",
     "require": {
-        "aacassandra/mesosfer-php-sdk": "^1.0"
+        "aacassandra/mesosfer-php-sdk": "1.0.*"
     },
     "license": "MIT",
     "authors": [
