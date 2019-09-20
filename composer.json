@@ -1,10 +1,10 @@
 {
-    "name": "aacassandra/mesosfer-lib",
+    "name": "aacassandra/mesosfer-php-lib",
     "description": "For make to easy use mesosfer database, this package available to crud method.",
     "keywords": ["mesosfer"],
     "type": "library",
     "require": {
-        "aacassandra/mesosfer-php-sdk": "^19.9"
+        "aacassandra/mesosfer-php-sdk": "^1.0"
     },
     "license": "MIT",
     "authors": [
