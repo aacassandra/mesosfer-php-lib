@@ -11,6 +11,7 @@ use Parse\ParseCloud;
 use Parse\ParseConfig;
 use Mesosfer\MesosferHelp;
 use Mesosfer\MesosferTools;
+use Mesosfer\MesosferAuth;
 
 class MesosferSdk
 {
@@ -416,12 +417,48 @@ class MesosferSdk
         //
     }
 
-    public static function getConfig($parameter = "")
+    public static function getConfig($parameter = "", $withSession=false)
     {
-        MesosferSdk::initialize();
-        $config = new ParseConfig();
-        $value = $config->get($parameter);
-        return $value;
+        if (!$withSession) {
+            MesosferSdk::initialize();
+            $config = new ParseConfig();
+            $value = $config->get($parameter);
+            return $value;
+        } else {
+            $currentUser = ParseUser::getCurrentUser();
+            $sessionToken = $currentUser->getSessionToken();
+            $env = config('app.env');
+            $protocol = config('mesosfer.' . $env . '.protocol');
+            $host = config('mesosfer.' . $env . '.host');
+            $port = config('mesosfer.' . $env . '.port');
+            $subUrl = config('mesosfer.' . $env . '.subUrl');
+            $headers = array(
+                sprintf(config('mesosfer.' . $env . '.headerAppID') . ": %s", config('mesosfer.' . $env . '.appId')),
+                sprintf(config('mesosfer.' . $env . '.headerRestKey') . ": %s", config('mesosfer.' . $env . '.restKey')),
+                sprintf(config('mesosfer.' . $env . '.headerSessionToken') . ": %s", $sessionToken),
+            );
+
+
+            $url = sprintf("%s://%s:%s/%s/config", $protocol, $host, $port, $subUrl);
+            $ch = curl_init();
+            curl_setopt($ch, CURLOPT_URL, $url);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+            curl_setopt($ch, CURLOPT_TIMEOUT, 10);
+
+            $output = json_decode(curl_exec($ch));
+            $httpCode = curl_getinfo($ch);
+            curl_close($ch);
+            $output = MesosferTools::json2Array($output->params);
+            $value = '';
+            foreach ($output as $key => $item) {
+                if ($key == $parameter) {
+                    $value = $item;
+                }
+            }
+            
+            return $value;
+        }
     }
 
     public static function setConfig($parameter = "", $value)

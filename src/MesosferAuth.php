@@ -194,4 +194,19 @@ class MesosferAuth
             return $response;
         }
     }
+
+    public function getConfig($parameter = "")
+    {
+        $config = new ParseConfig();
+        $value = $config->get($parameter);
+        return $value;
+    }
+
+    public function setConfig($parameter = "", $value)
+    {
+        $config = new ParseConfig();
+        $config->set($parameter, $value);
+        $config->save();
+        return;
+    }
 }
