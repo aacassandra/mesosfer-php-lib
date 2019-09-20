@@ -1,0 +1,21 @@
+{
+    "name": "aacassandra/mesosfer-lib",
+    "description": "For make to easy use mesosfer database, this package available to crud method.",
+    "keywords": ["mesosfer"],
+    "type": "library",
+    "require": {
+        "aacassandra/mesosfer-php-sdk": "^19.9"
+    },
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "aacassandra",
+            "email": "alauddinafifcassandra@programmer.net"
+        }
+    ],
+    "autoload": {
+        "psr-4": {
+            "Mesosfer\\": "src/"
+        }
+    }
+}
