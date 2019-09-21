@@ -456,7 +456,7 @@ class MesosferSdk
                     $value = $item;
                 }
             }
-            
+
             return $value;
         }
     }
@@ -489,14 +489,14 @@ class MesosferSdk
     *    ]
     *];
     */
-    public static function batchOperations($data)
+    public static function batchOperations($data, $withSession=false)
     {
         $data = MesosferTools::array2Json($data);
 
         $tmp = '';
         foreach ($data as $key => $item) {
-            $method = strtolower($item->method);
-            if ($method == 'put' || $method == 'post') {
+            $method = strtoupper($item->method);
+            if ($method == 'PUT' || $method == 'POST') {
                 $tmp2 = '';
                 foreach ($item->data as $key1 => $item1) {
                     $tmpC = MesosferHelp::batchConditional($item1);
@@ -548,6 +548,11 @@ class MesosferSdk
               "Content-Type: application/json"
           );
 
+        if ($withSession) {
+            $currentUser = ParseUser::getCurrentUser();
+            $sessionToken = $currentUser->getSessionToken();
+            array_push($headers, sprintf(config('mesosfer.' . $env . '.headerSessionToken') . ": %s", $sessionToken));
+        }
 
         $url = sprintf("%s://%s:%s/%s/batch", $protocol, $host, $port, $subUrl);
         $ch = curl_init();
