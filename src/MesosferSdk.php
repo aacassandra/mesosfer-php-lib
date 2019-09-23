@@ -7,6 +7,7 @@ use Parse\ParseException;
 use Parse\ParseObject;
 use Parse\ParseQuery;
 use Parse\ParseUser;
+use Parse\ParseFile;
 use Parse\ParseCloud;
 use Parse\ParseConfig;
 use Mesosfer\MesosferHelp;
@@ -350,37 +351,74 @@ class MesosferSdk
         return;
     }
 
-    /** Data Initialize for updateUsers
-    * $data = [
-    *   [
-    *     'type'=>'string','object'=>'status','key'=>$request->status
-    *   ]
-    * ];
-    * $options = '{
-    *   "id":"'.$id.'",
-    *   "data":'.json_encode($data).'
-    * }';
-    * json_decode($options)
-    */
-    public static function updateUsers($data)
+    public static function uploadFile($file, $masterKey=false)
     {
-        MesosferSdk::initialize();
-        $mesosfer = ParseCloud::run('usersUpdater', $data);
-        if ($mesosfer['status']) {
+        $path = $file->getRealPath();
+        $mime = $file->getMimeType();
+        $nomeOriginal = $file->getClientOriginalName();
+        $nomeCorrigido = preg_replace('/\\s+/', '', $nomeOriginal);
+        $file = ParseFile::createFromFile($path, $nomeCorrigido, $mime);
+        $file->save();
+        $response = [
+            "output" => [
+              '__type' => 'File',
+              'url'    => $file->getUrl(),
+              'name'   => $file->getName(),
+            ]
+        ];
+
+        $response = MesosferTools::array2Json($response);
+        return $response;
+    }
+
+    public static function updateUsers($id, $data)
+    {
+        $env = config('app.env');
+        $protocol = config('mesosfer.' . $env . '.protocol');
+        $host = config('mesosfer.' . $env . '.host');
+        $port = config('mesosfer.' . $env . '.port');
+        $subUrl = config('mesosfer.' . $env . '.subUrl');
+        $headers = array(
+          sprintf(config('mesosfer.' . $env . '.headerAppID') . ": %s", config('mesosfer.' . $env . '.appId')),
+          sprintf(config('mesosfer.' . $env . '.headerMasterKey') . ": %s", config('mesosfer.' . $env . '.masterKey')),
+          "Content-Type: application/json",
+      );
+
+
+        $url = sprintf("%s://%s:%s/%s/users/%s", $protocol, $host, $port, $subUrl, $id);
+
+        $ch = curl_init();
+        curl_setopt($ch, CURLOPT_URL, $url);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+        curl_setopt($ch, CURLOPT_POSTFIELDS, $data);
+        curl_setopt($ch, CURLOPT_CUSTOMREQUEST, "PUT");
+        curl_setopt($ch, CURLOPT_TIMEOUT, 10);
+
+        $output = curl_exec($ch);
+        $httpCode = curl_getinfo($ch);
+        curl_close($ch);
+        $output = json_decode($output);
+        $response;
+        if ($httpCode['http_code'] == 200) {
             $response = [
-              "output" => $mesosfer['output'],
+              "output" => [
+                "requests" => $output,
+                "statusCode" => $httpCode
+              ],
               "status" => true
             ];
-            $response = MesosferTools::array2Json($response);
-            return $response;
         } else {
             $response = [
-              "output" => $mesosfer['output'],
+              "output" => [
+                "requests" => $output,
+                "statusCode" => $httpCode
+              ],
               "status" => false
             ];
-            $response = MesosferTools::array2Json($response);
-            return $response;
         }
+        $response = MesosferTools::array2Json($response);
+        return $response;
     }
 
     public static function getUserProfile($options)
@@ -404,10 +442,6 @@ class MesosferSdk
     }
 
     public static function updateProfile($id, $dataUser = array())
-    {
-        //
-    }
-    public static function uploadFile($filename, $contentType, $fileBlob)
     {
         //
     }
