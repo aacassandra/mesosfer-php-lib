@@ -90,7 +90,7 @@ class MesosferSdk
     *   ]
     * ];
     */
-    public static function getAllObject($class, $options = array(), $need1Response = false)
+    public static function getAllObject($class, $options = [], $need1Response = false)
     {
         MesosferSdk::initialize();
         $query = new ParseQuery($class);
@@ -163,7 +163,7 @@ class MesosferSdk
         }
     }
 
-    public static function storeObject($class = "", $data = array())
+    public static function storeObject($class = "", $data = [])
     {
         MesosferSdk::initialize();
         $object = new ParseObject($class);
@@ -200,7 +200,7 @@ class MesosferSdk
     *   ],
     * ];
     */
-    public static function getObject($class = "", $id = "", $options = array())
+    public static function getObject($class = "", $id = "", $options = [])
     {
         MesosferSdk::initialize();
         $query = new ParseQuery($class);
@@ -264,7 +264,7 @@ class MesosferSdk
     *   ]
     *];
     */
-    public static function updateObject($class = "", $id = "", $data = array())
+    public static function updateObject($class = "", $id = "", $data = [])
     {
         MesosferSdk::initialize();
         $query = new ParseQuery($class);
@@ -323,7 +323,7 @@ class MesosferSdk
     }
 
 
-    public static function deleteFile($url = array())
+    public static function deleteFile($url = [])
     {
         $env = config('app.env');
         $appId = config('mesosfer.'.$env.'.appId');
@@ -382,7 +382,7 @@ class MesosferSdk
           sprintf(config('mesosfer.' . $env . '.headerAppID') . ": %s", config('mesosfer.' . $env . '.appId')),
           sprintf(config('mesosfer.' . $env . '.headerMasterKey') . ": %s", config('mesosfer.' . $env . '.masterKey')),
           "Content-Type: application/json",
-      );
+        );
 
 
         $url = sprintf("%s://%s:%s/%s/users/%s", $protocol, $host, $port, $subUrl, $id);
@@ -441,12 +441,35 @@ class MesosferSdk
         }
     }
 
-    public static function updateProfile($id, $dataUser = array())
+    public static function updateProfile($dataUser = [])
     {
-        //
+        MesosferSdk::initialize();
+        $currentUser = ParseUser::getCurrentUser();
+        if ($currentUser) {
+            MesosferHelp::objectSet($currentUser, $dataUser);
+            try {
+                $currentUser->save();
+                $response = [
+                  "output" => $currentUser,
+                  "status" => true
+                ];
+                $response = MesosferTools::array2Json($response);
+                return $response;
+            } catch (ParseException $error) {
+                $response = [
+                  "output" => [
+                    'code' => $error->getCode(),
+                    'message' => $error->getMessage()
+                  ],
+                  "status" => false
+                ];
+                $response = MesosferTools::array2Json($response);
+                return $response;
+            }
+        }
     }
 
-    public static function getAggregation($class = "", $query = array())
+    public static function getAggregation($class = "", $query = [])
     {
         //
     }
