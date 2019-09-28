@@ -401,13 +401,20 @@ class MesosferSdk
         $output = json_decode($output);
         $response;
         if ($httpCode['http_code'] == 200) {
-            $response = [
-              "output" => [
-                "requests" => $output,
-                "statusCode" => $httpCode
-              ],
-              "status" => true
-            ];
+            if (isset($output->error)) {
+                $response = [
+                  "output" => [
+                      "code" => $output->code,
+                      "message" => $output->error
+                  ],
+                  "status" => false
+                ];
+            } else {
+                $response = [
+                  "output" => $output,
+                  "status" => true
+                ];
+            }
         } else {
             $response = [
               "output" => [

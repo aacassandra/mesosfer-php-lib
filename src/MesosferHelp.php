@@ -133,7 +133,11 @@ class MesosferHelp
                 } elseif ($dat[0] == 'number') {
                     $object->set($dat[1], ($dat[2] * 1));
                 } elseif ($dat[0] == 'boolean') {
-                    if ($dat[2] == true) {
+                    if (strpos($dat[2], 'false') !== false) {
+                        $object->set($dat[1], false);
+                    } elseif (strpos($dat[2], 'true') !== false) {
+                        $object->set($dat[1], true);
+                    } elseif ($dat[2] == true) {
                         $object->set($dat[1], true);
                     } elseif ($dat[2] == false) {
                         $object->set($dat[1], false);
