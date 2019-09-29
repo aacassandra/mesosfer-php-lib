@@ -334,8 +334,8 @@ class MesosferSdk
             "Content-Type: application/json"
         );
 
-        $ch = curl_init();
         foreach ($url as $item) {
+            $ch = curl_init();
             $item = str_replace($appId."/", "", $item);
             curl_setopt($ch, CURLOPT_URL, $item);
             curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
