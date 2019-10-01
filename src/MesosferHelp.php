@@ -94,9 +94,9 @@ class MesosferHelp
             } elseif (isset($where->lessThan)) {
                 $query->lessThan($where->object, $where->lessThan);
             } elseif (isset($where->greaterThanOrEqualTo)) {
-                $query->greaterThanOrEqualTo($where->object, $where->greaterThanOrEqualTo);
+                $query->greaterThanOrEqualTo($where->object, $where->greaterThanOrEqualTo * 1);
             } elseif (isset($where->lessThanOrEqualTo)) {
-                $query->lessThanOrEqualTo($where->object, $where->lessThanOrEqualTo);
+                $query->lessThanOrEqualTo($where->object, $where->lessThanOrEqualTo * 1);
             //Get query from less than / greater than of DateTime
             } elseif (isset($where->greaterThanRelativeTime)) {
                 $query->greaterThanRelativeTime($where->object, $where->greaterThanRelativeTime);
