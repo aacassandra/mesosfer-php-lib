@@ -145,7 +145,7 @@ class MesosferHelp
                 } elseif ($dat[0] == 'array') {
                     $object->setArray($dat[1], $dat[2]);
                 } elseif ($dat[0] == 'object') {
-                    $dat[2] = MesosferTools::mesosferJson2Array($dat[2]);
+                    $dat[2] = MesosferTools::json2Array($dat[2]);
                     $object->setAssociativeArray($dat[1], $dat[2]);
                 } elseif ($dat[0] == 'image') {
                     $path = $dat[2]->getRealPath();

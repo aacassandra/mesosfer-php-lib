@@ -323,20 +323,39 @@ class MesosferSdk
     }
 
 
-    public static function deleteFile($url = [])
+    public static function deleteFile($array_mode=false, $url, $env_mode='')
     {
-        $env = config('app.env');
+        if ($env_mode=='') {
+            $env = config('app.env');
+        } else {
+            $env = $env_mode;
+        }
+
         $appId = config('mesosfer.'.$env.'.appId');
         $headers = array(
-            sprintf(config('mesosfer.' . $env . '.headerAppID') . ": %s", config('mesosfer.' . $env . '.appId')),
-            sprintf(config('mesosfer.' . $env . '.headerRestKey') . ": %s", config('mesosfer.' . $env . '.restKey')),
-            sprintf(config('mesosfer.' . $env . '.headerMasterKey') . ": %s", config('mesosfer.' . $env . '.masterKey')),
-            "Content-Type: application/json"
+          sprintf(config('mesosfer.' . $env . '.headerAppID') . ": %s", config('mesosfer.' . $env . '.appId')),
+          sprintf(config('mesosfer.' . $env . '.headerMasterKey') . ": %s", config('mesosfer.' . $env . '.masterKey')),
+          "Content-Type: application/json"
         );
 
-        foreach ($url as $item) {
+        if ($array_mode) {
+            foreach ($url as $item) {
+                $ch = curl_init();
+                $item = str_replace($appId."/", "", $item);
+                curl_setopt($ch, CURLOPT_URL, $item);
+                curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+                curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+                curl_setopt($ch, CURLOPT_CUSTOMREQUEST, "DELETE");
+                curl_setopt($ch, CURLOPT_TIMEOUT, 10);
+                $output = '';
+                $output = curl_exec($ch);
+                $httpCode = curl_getinfo($ch);
+                curl_close($ch);
+            }
+            return;
+        } else {
             $ch = curl_init();
-            $item = str_replace($appId."/", "", $item);
+            $item = str_replace($appId."/", "", $url);
             curl_setopt($ch, CURLOPT_URL, $item);
             curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
             curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
@@ -347,28 +366,84 @@ class MesosferSdk
             $output = curl_exec($ch);
             $httpCode = curl_getinfo($ch);
             curl_close($ch);
-        };
-        return;
+            $response;
+            if ($httpCode['http_code'] == 200) {
+                if (isset($output->error)) {
+                    $response = [
+                      "output" => [
+                        "code" => $output->code,
+                        "message" => $output->error
+                      ],
+                      "status" => false
+                    ];
+                } else {
+                    $response = [
+                      "output" => $output,
+                      "status" => true
+                    ];
+                }
+            } else {
+                $response = [
+                  "output" => [
+                    "requests" => $output,
+                    "statusCode" => $httpCode
+                  ],
+                  "status" => false
+                ];
+            }
+            $response = MesosferTools::array2Json($response);
+            return $response;
+        }
     }
 
-    public static function uploadFile($file, $masterKey=false)
+    public static function uploadFile($file, $saveToClass)
     {
         $path = $file->getRealPath();
         $mime = $file->getMimeType();
         $nomeOriginal = $file->getClientOriginalName();
         $nomeCorrigido = preg_replace('/\\s+/', '', $nomeOriginal);
         $file = ParseFile::createFromFile($path, $nomeCorrigido, $mime);
-        $file->save();
-        $response = [
-            "output" => [
-              '__type' => 'File',
-              'url'    => $file->getUrl(),
-              'name'   => $file->getName(),
-            ]
-        ];
-
-        $response = MesosferTools::array2Json($response);
-        return $response;
+        try {
+            $file->save();
+            $response = [
+              "output" => [
+                '__type' => 'File',
+                'url'    => $file->getUrl(),
+                'name'   => $file->getName(),
+              ],
+              "status" => true
+            ];
+            $response = MesosferTools::array2Json($response);
+            if (isset($saveToClass)) {
+                $data = [
+                  ['object','file',$response->output]
+                ];
+                $save = MesosferSdk::storeObject($saveToClass, $data);
+                if (!$save->status) {
+                    $response = [
+                      "output" => [
+                        'code' => $save->output->code,
+                        'message' => $save->output->message
+                      ],
+                      "status" => false
+                    ];
+                    $response = MesosferTools::array2Json($response);
+                }
+                return $response;
+            } else {
+                return $response;
+            }
+        } catch (ParseException $error) {
+            $response = [
+              "output" => [
+                'code' => $error->getCode(),
+                'message' => $error->getMessage()
+              ],
+              "status" => false
+            ];
+            $response = MesosferTools::array2Json($response);
+            return $response;
+        }
     }
 
     public static function updateUsers($id, $data)
