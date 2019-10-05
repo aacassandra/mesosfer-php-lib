@@ -396,7 +396,7 @@ class MesosferSdk
         }
     }
 
-    public static function uploadFile($file, $saveToClass)
+    public static function uploadFile($file)
     {
         $path = $file->getRealPath();
         $mime = $file->getMimeType();
@@ -414,25 +414,7 @@ class MesosferSdk
               "status" => true
             ];
             $response = MesosferTools::array2Json($response);
-            if (isset($saveToClass)) {
-                $data = [
-                  ['object','file',$response->output]
-                ];
-                $save = MesosferSdk::storeObject($saveToClass, $data);
-                if (!$save->status) {
-                    $response = [
-                      "output" => [
-                        'code' => $save->output->code,
-                        'message' => $save->output->message
-                      ],
-                      "status" => false
-                    ];
-                    $response = MesosferTools::array2Json($response);
-                }
-                return $response;
-            } else {
-                return $response;
-            }
+            return $response;
         } catch (ParseException $error) {
             $response = [
               "output" => [
