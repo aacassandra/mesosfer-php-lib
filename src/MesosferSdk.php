@@ -396,7 +396,7 @@ class MesosferSdk
         }
     }
 
-    public static function uploadFile($file)
+    public static function uploadFile($file, $forceHttpsUrlFeedback = false)
     {
         $path = $file->getRealPath();
         $mime = $file->getMimeType();
@@ -405,10 +405,17 @@ class MesosferSdk
         $file = ParseFile::createFromFile($path, $nomeCorrigido, $mime);
         try {
             $file->save();
+            $url = '';
+            if ($forceHttpsUrlFeedback) {
+                $url = str_replace("http", "https", $file->getUrl());
+            } else {
+                $url = $file->getUrl();
+            }
+
             $response = [
               "output" => [
                 '__type' => 'File',
-                'url'    => $file->getUrl(),
+                'url'    => $url,
                 'name'   => $file->getName(),
               ],
               "status" => true
