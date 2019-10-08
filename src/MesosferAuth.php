@@ -119,10 +119,14 @@ class MesosferAuth
     public function getCurrentUser(Request $request, $refreshUser=false)
     {
         $currentUser = ParseUser::getCurrentUser();
-        $sessionToken = $currentUser->getSessionToken();
-
-        $currentUser = $currentUser->_encode();
-        $currentUser = json_decode($currentUser, true);
+        if (!$currentUser) {
+            $currentUser = $request->session()->get($this->storageKey);
+            $sessionToken = $currentUser['sessionToken'];
+        } else {
+            $sessionToken = $currentUser->getSessionToken();
+            $currentUser = $currentUser->_encode();
+            $currentUser = json_decode($currentUser, true);
+        }
 
         $newUserData;
         if ($refreshUser) {
