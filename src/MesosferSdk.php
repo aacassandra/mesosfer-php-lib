@@ -547,22 +547,32 @@ class MesosferSdk
 
     public static function getConfig($parameter = "", $withSession=false)
     {
+        $env = config('app.env');
         if (!$withSession) {
+            // Only support single parameter
             MesosferSdk::initialize();
             $config = new ParseConfig();
             $value = $config->get($parameter);
             return $value;
         } else {
+            // Has supported get all parameter
             $currentUser = ParseUser::getCurrentUser();
-            $sessionToken = $currentUser->getSessionToken();
-            $env = config('app.env');
+            $sessionToken;
+            if (isset($currentUser)) {
+                $sessionToken = $currentUser->getSessionToken();
+            } else {
+                $storageKey = config('mesosfer.'.$env.'.storageKey');
+                $sessionToken = session($storageKey.'.sessionToken');
+            }
+
             $protocol = config('mesosfer.' . $env . '.protocol');
             $host = config('mesosfer.' . $env . '.host');
             $port = config('mesosfer.' . $env . '.port');
             $subUrl = config('mesosfer.' . $env . '.subUrl');
             $headers = array(
                 sprintf(config('mesosfer.' . $env . '.headerAppID') . ": %s", config('mesosfer.' . $env . '.appId')),
-                sprintf(config('mesosfer.' . $env . '.headerMasterKey') . ": %s", config('mesosfer.' . $env . '.masterKey')),
+                sprintf(config('mesosfer.' . $env . '.headerRestKey') . ": %s", config('mesosfer.' . $env . '.restKey')),
+                sprintf(config('mesosfer.' . $env . '.headerSessionToken') . ": %s", $sessionToken),
             );
 
 
@@ -576,39 +586,56 @@ class MesosferSdk
             $output = json_decode(curl_exec($ch));
             $httpCode = curl_getinfo($ch);
             curl_close($ch);
-            
-            return $output;
+            $output = MesosferTools::json2Array($output->params);
+            $value;
+            if (isset($parameter) && $parameter != '') {
+                foreach ($output as $key => $item) {
+                    if ($key == $parameter) {
+                        $value = $item;
+                    }
+                }
+            } else {
+                $value = $output;
+                $value = MesosferTools::array2Json($value);
+            }
+
+            return $value;
         }
     }
 
-    public static function setConfig($params = array())
+    public static function setConfig($parameter, $value)
     {
-        $env = config('app.env');
-        $protocol = config('mesosfer.' . $env . '.protocol');
-        $host = config('mesosfer.' . $env . '.host');
-        $port = config('mesosfer.' . $env . '.port');
-        $subUrl = config('mesosfer.' . $env . '.subUrl');
-        $headers = array(
-            sprintf(config('mesosfer.' . $env . '.headerAppID') . ": %s", config('mesosfer.' . $env . '.appId')),
-            sprintf(config('mesosfer.' . $env . '.headerMasterKey') . ": %s", config('mesosfer.' . $env . '.masterKey')),
-            "Content-Type: application/json",
-        );
+        if (is_array($parameter) or ($parameter instanceof Traversable)) {
+            $env = config('app.env');
+            $protocol = config('mesosfer.' . $env . '.protocol');
+            $host = config('mesosfer.' . $env . '.host');
+            $port = config('mesosfer.' . $env . '.port');
+            $subUrl = config('mesosfer.' . $env . '.subUrl');
+            $headers = array(
+                      sprintf(config('mesosfer.' . $env . '.headerAppID') . ": %s", config('mesosfer.' . $env . '.appId')),
+                      sprintf(config('mesosfer.' . $env . '.headerMasterKey') . ": %s", config('mesosfer.' . $env . '.masterKey')),
+                      "Content-Type: application/json",
+                  );
+            $url = sprintf("%s://%s:%s/%s/config", $protocol, $host, $port, $subUrl);
+            $ch = curl_init();
+            curl_setopt($ch, CURLOPT_URL, $url);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+            curl_setopt($ch, CURLOPT_TIMEOUT, 10);
+            curl_setopt($ch, CURLOPT_CUSTOMREQUEST, "PUT");
+            curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($parameter));
+            $output = json_decode(curl_exec($ch));
+            $httpCode = curl_getinfo($ch);
+            curl_close($ch);
 
-
-        $url = sprintf("%s://%s:%s/%s/config", $protocol, $host, $port, $subUrl);
-        $ch = curl_init();
-        curl_setopt($ch, CURLOPT_URL, $url);
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
-        curl_setopt($ch, CURLOPT_TIMEOUT, 10);
-        curl_setopt($ch, CURLOPT_CUSTOMREQUEST, "PUT");
-        curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($params));
-
-        $output = json_decode(curl_exec($ch));
-        $httpCode = curl_getinfo($ch);
-        curl_close($ch);
-       
-        return $output;
+            return $output;
+        } else {
+            MesosferSdk::initialize();
+            $config = new ParseConfig();
+            $config->set($parameter, $value);
+            $config->save();
+            return;
+        }
     }
 
     /** $data = [
