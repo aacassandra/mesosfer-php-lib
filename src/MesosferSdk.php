@@ -264,18 +264,30 @@ class MesosferSdk
     *   ]
     *];
     */
-    public static function updateObject($class = "", $id = "", $data = [])
+    public static function updateObject($class = "", $id = "", $data = [], $options = [])
     {
         MesosferSdk::initialize();
         $query = new ParseQuery($class);
+
         try {
             $object = $query->get($id);
             MesosferHelp::objectSet($object, $data);
             $object->save();
-            $response = [
-              "output" => null,
-              "status" => true
-            ];
+
+            $object = MesosferSdk::getObject($class, $id, $options);
+            $response;
+            if ($object->status) {
+                $response = [
+                  "output" => $object->output,
+                  "status" => true
+                ];
+            } else {
+                $response = [
+                  "output" => null,
+                  "status" => true
+                ];
+            }
+
             $response = MesosferTools::array2Json($response);
             return $response;
         } catch (ParseException $error) {

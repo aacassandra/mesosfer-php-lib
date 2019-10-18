@@ -118,10 +118,10 @@ class MesosferHelp
             if (isset($dat[3])) {
                 if ($dat[0] == 'pointer') {
                     $pointer = '{
-                  "__type": "Pointer",
-                  "className": "'.$dat[3].'",
-                  "objectId": "'.$dat[2].'"
-                }';
+                      "__type": "Pointer",
+                      "className": "'.$dat[3].'",
+                      "objectId": "'.$dat[2].'"
+                    }';
                     $pointer = json_decode($pointer);
                     $object->set($dat[1], $pointer);
                 }
@@ -158,6 +158,8 @@ class MesosferHelp
                 } elseif ($dat[0] == 'geopoint') {
                     $point = new ParseGeoPoint($dat[2][0], $dat[2][1]);
                     $object->set($dat[1], $point);
+                } elseif ($dat[0] == 'delete') {
+                    $object->delete($dat[1]);
                 }
             }
         }
