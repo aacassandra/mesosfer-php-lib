@@ -447,6 +447,71 @@ class MesosferSdk
         }
     }
 
+    public static function retrieveUser($id='')
+    {
+        $currentUser = ParseUser::getCurrentUser();
+        $sessionToken;
+        if (isset($currentUser)) {
+            $sessionToken = $currentUser->getSessionToken();
+        } else {
+            $storageKey = config('mesosfer.'.$env.'.storageKey');
+            $sessionToken = session($storageKey.'.sessionToken');
+        }
+
+        $env = config('app.env');
+        $protocol = config('mesosfer.' . $env . '.protocol');
+        $host = config('mesosfer.' . $env . '.host');
+        $port = config('mesosfer.' . $env . '.port');
+        $subUrl = config('mesosfer.' . $env . '.subUrl');
+        $headers = array(
+          sprintf(config('mesosfer.' . $env . '.headerAppID') . ": %s", config('mesosfer.' . $env . '.appId')),
+          sprintf(config('mesosfer.' . $env . '.headerRestKey') . ": %s", config('mesosfer.' . $env . '.restKey')),
+          sprintf(config('mesosfer.' . $env . '.headerSessionToken') . ": %s", $sessionToken),
+          sprintf(config('mesosfer.' . $env . '.headerMasterKey') . ": %s", config('mesosfer.' . $env . '.masterKey')),
+          "Content-Type: application/json",
+        );
+
+        $param = 'where={"objectId":"'.$id.'"}';
+        $url = sprintf("%s://%s:%s/%s/users?%s", $protocol, $host, $port, $subUrl, $param);
+
+        $ch = curl_init();
+        curl_setopt($ch, CURLOPT_URL, $url);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 10);
+
+        $output = json_decode(curl_exec($ch));
+        $httpCode = curl_getinfo($ch);
+        curl_close($ch);
+        $response;
+        if ($httpCode['http_code'] == 200) {
+            if (isset($output->error)) {
+                $response = [
+                  "output" => [
+                      "code" => $output->code,
+                      "message" => $output->error
+                  ],
+                  "status" => false
+                ];
+            } else {
+                $response = [
+                  "output" => $output->results[0],
+                  "status" => true
+                ];
+            }
+        } else {
+            $response = [
+              "output" => [
+                "requests" => $output,
+                "statusCode" => $httpCode
+              ],
+              "status" => false
+            ];
+        }
+        $response = MesosferTools::array2Json($response);
+        return $response;
+    }
+
     public static function updateUsers($id, $data)
     {
         $env = config('app.env');
