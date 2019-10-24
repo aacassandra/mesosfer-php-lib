@@ -462,6 +462,7 @@ class MesosferSdk
 
     public static function retrieveUser($id='')
     {
+        $env = config('app.env');
         $currentUser = ParseUser::getCurrentUser();
         $sessionToken;
         if (isset($currentUser)) {
@@ -471,7 +472,6 @@ class MesosferSdk
             $sessionToken = session($storageKey.'.sessionToken');
         }
 
-        $env = config('app.env');
         $protocol = config('mesosfer.' . $env . '.protocol');
         $host = config('mesosfer.' . $env . '.host');
         $port = config('mesosfer.' . $env . '.port');
