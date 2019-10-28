@@ -47,6 +47,7 @@ class MesosferHelp
         $json_encoded_string = str_replace('\"}],"', '"}],"', $json_encoded_string);
         $json_encoded_string = str_replace('"}"],"', '"}],"', $json_encoded_string);
         $json_encoded_string = str_replace('\"}}},"', '"}}},"', $json_encoded_string);
+        $json_encoded_string = str_replace('\"},{"', '"},{"', $json_encoded_string);
         return $json_encoded_string;
     }
 

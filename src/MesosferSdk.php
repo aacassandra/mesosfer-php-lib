@@ -684,6 +684,7 @@ class MesosferSdk
                         $value = $item;
                     }
                 }
+                $value = MesosferTools::array2Json($value);
             } else {
                 $value = $output;
                 $value = MesosferTools::array2Json($value);
