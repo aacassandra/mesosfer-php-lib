@@ -48,6 +48,18 @@ class MesosferHelp
         $json_encoded_string = str_replace('"}"],"', '"}],"', $json_encoded_string);
         $json_encoded_string = str_replace('\"}}},"', '"}}},"', $json_encoded_string);
         $json_encoded_string = str_replace('\"},{"', '"},{"', $json_encoded_string);
+        $json_encoded_string = str_replace('[\{', '[{', $json_encoded_string);
+        $json_encoded_string = str_replace('\"},"', '"},"', $json_encoded_string);
+        $json_encoded_string = str_replace('\\\"', '"', $json_encoded_string);
+        $json_encoded_string = str_replace('":\"', '":"', $json_encoded_string);
+        $json_encoded_string = str_replace('\":\\"', '":"', $json_encoded_string);
+        $json_encoded_string = str_replace(':\\"', ':"', $json_encoded_string);
+        $json_encoded_string = str_replace('\\\"', '"', $json_encoded_string);
+        $json_encoded_string = str_replace('":[{\"', '":[{"', $json_encoded_string);
+        $json_encoded_string = str_replace('":\"', '":"', $json_encoded_string);
+        $json_encoded_string = str_replace('\"},"', '"},"', $json_encoded_string);
+        $json_encoded_string = str_replace('":{\"', '":{"', $json_encoded_string);
+        $json_encoded_string = str_replace('{\"', '{"', $json_encoded_string);
         return $json_encoded_string;
     }
 
@@ -177,7 +189,7 @@ class MesosferHelp
         if ($dat[0] == 'string') {
             return '"'.$dat[1].'":"'.$dat[2].'"';
         } elseif ($dat[0] == 'number') {
-            return '"'.$dat[1].'":"'.($dat[2] * 1).'"';
+            return '"'.$dat[1].'":'.($dat[2] * 1);
         } elseif ($dat[0] == 'boolean') {
             if ($dat[2]=='true'||$dat[2]==true||$dat[2]=='True'||$dat[2]==1) {
                 return '"'.$dat[1].'":true';
@@ -186,10 +198,16 @@ class MesosferHelp
             }
         } elseif ($dat[0] == 'pointer') {
             return '"'.$dat[1].'":{
-            "__type": "Pointer", "className": "_User", "objectId": "'.$dat[2].'"
-          }';
+              "__type": "Pointer", "className": "'.$dat[3].'", "objectId": "'.$dat[2].'"
+            }';
         } elseif ($dat[0]=='array') {
+            return '"'.$dat[1].'":'.json_encode(array_values($dat[2]));
+        } elseif ($dat[0]=='object') {
             return '"'.$dat[1].'":'.json_encode($dat[2]);
+        } elseif ($dat[0] == 'geopoint') {
+            return '"'.$dat[1].'":{
+              "__type": "GeoPoint", "latitude": "'.$dat[2].'", "longitude": "'.$dat[3].'"
+            }';
         }
     }
 }
