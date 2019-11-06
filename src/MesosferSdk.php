@@ -126,7 +126,7 @@ class MesosferSdk
                 return $response;
             } else {
                 if (count($success)==1) {
-                    if (isset($options['need1Response'])) {
+                    if (isset($options['need1Response']) && ($options['need1Response']==true || $options['need1Response']=='True' || $options['need1Response']=='true' || $options['need1Response']==1)) {
                         $response = [
                           "output" => $decode[0],
                           "status" => true
@@ -751,6 +751,16 @@ class MesosferSdk
     public static function batchOperations($data, $withSession=false)
     {
         $data = MesosferTools::array2Json($data);
+        $env = config('app.env');
+        $protocol = config('mesosfer.' . $env . '.protocol');
+        $host = config('mesosfer.' . $env . '.host');
+        $port = config('mesosfer.' . $env . '.port');
+        $subUrl = config('mesosfer.' . $env . '.subUrl');
+        $headers = array(
+            sprintf(config('mesosfer.' . $env . '.headerAppID') . ": %s", config('mesosfer.' . $env . '.appId')),
+            sprintf(config('mesosfer.' . $env . '.headerRestKey') . ": %s", config('mesosfer.' . $env . '.restKey')),
+            "Content-Type: application/json"
+        );
 
         $tmp = '';
         foreach ($data as $key => $item) {
@@ -768,7 +778,7 @@ class MesosferSdk
 
                 $tmp1 = '{
                   "method": "'.$method.'",
-                  "path": "'.$item->path.'",
+                  "path": "/'.$subUrl.$item->path.'",
                   "body": {
                     '.$tmp2.'
                   }
@@ -779,10 +789,10 @@ class MesosferSdk
                 } else {
                     $tmp = $tmp .','. $tmp1;
                 }
-            } elseif ($method == 'delete') {
+            } elseif ($method == 'DELETE') {
                 $tmp1 = '{
                   "method": "'.$method.'",
-                  "path": "'.$item->path.'"
+                  "path": "/'.$subUrl.$item->path.'"
                 }';
 
                 if (!$key) {
@@ -796,16 +806,6 @@ class MesosferSdk
         $tmp = '{"requests":[
         '.$tmp.'
         ]}';
-        $env = config('app.env');
-        $protocol = config('mesosfer.' . $env . '.protocol');
-        $host = config('mesosfer.' . $env . '.host');
-        $port = config('mesosfer.' . $env . '.port');
-        $subUrl = config('mesosfer.' . $env . '.subUrl');
-        $headers = array(
-              sprintf(config('mesosfer.' . $env . '.headerAppID') . ": %s", config('mesosfer.' . $env . '.appId')),
-              sprintf(config('mesosfer.' . $env . '.headerRestKey') . ": %s", config('mesosfer.' . $env . '.restKey')),
-              "Content-Type: application/json"
-          );
 
         if ($withSession) {
             $currentUser = ParseUser::getCurrentUser();
