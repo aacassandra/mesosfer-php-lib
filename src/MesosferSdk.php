@@ -432,7 +432,7 @@ class MesosferSdk
             $file->save();
             $url = '';
             if ($forceHttpsUrlFeedback) {
-                $url = str_replace("http", "https", $file->getUrl());
+                $url = str_replace("http://", "https://", $file->getUrl());
             } else {
                 $url = $file->getUrl();
             }
