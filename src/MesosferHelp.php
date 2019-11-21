@@ -91,12 +91,24 @@ class MesosferHelp
             //Get query from spesific string
             if (isset($where->equalTo)) {
                 $query->equalTo($where->object, $where->equalTo);
+            } elseif (isset($where->equalToBoolean)) {
+                if ($where->equalToBoolean == 'True' || $where->equalToBoolean == 'true' || $where->equalToBoolean == true || $where->equalToBoolean == 1 || $where->equalToBoolean == '1') {
+                    $query->equalTo($where->object, true);
+                } elseif ($where->equalToBoolean == 'False' || $where->equalToBoolean == 'false' || $where->equalToBoolean == false || $where->equalToBoolean == 2 || $where->equalToBoolean == '2') {
+                    $query->equalTo($where->object, false);
+                }
             } elseif (isset($where->equalToNumber)) {
                 $query->equalTo($where->object, $where->equalToNumber * 1);
             } elseif (isset($where->equalToPointer)) {
                 $query->equalTo($where->object, new ParseObject($where->class, $where->objectId, true));
             } elseif (isset($where->notEqualTo)) {
                 $query->notEqualTo($where->object, $where->notEqualTo);
+            } elseif (isset($where->notEqualToBoolean)) {
+                if ($where->notEqualToBoolean == 'True' || $where->notEqualToBoolean == 'true' || $where->notEqualToBoolean == true || $where->notEqualToBoolean == 1 || $where->notEqualToBoolean == '1') {
+                    $query->notEqualTo($where->object, true);
+                } elseif ($where->notEqualToBoolean == 'False' || $where->notEqualToBoolean == 'false' || $where->notEqualToBoolean == false || $where->notEqualToBoolean == 2 || $where->notEqualToBoolean == '2') {
+                    $query->notEqualTo($where->object, false);
+                }
             } elseif (isset($where->notEqualToNumber)) {
                 $query->notEqualTo($where->object, $where->notEqualToNumber * 1);
             } elseif (isset($where->notEqualToPointer)) {
@@ -206,7 +218,7 @@ class MesosferHelp
             return '"'.$dat[1].'":'.json_encode($dat[2]);
         } elseif ($dat[0] == 'geopoint') {
             return '"'.$dat[1].'":{
-              "__type": "GeoPoint", "latitude": "'.$dat[2].'", "longitude": "'.$dat[3].'"
+              "__type": "GeoPoint", "latitude": '.($dat[2] * 1).', "longitude": '.($dat[3] * 1).'
             }';
         }
     }
