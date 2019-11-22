@@ -47,7 +47,7 @@ class MesosferAuth
     *  ['status','ADMIN']
     *]
     */
-    public function signUp(Request $request, $dataUser = [], $data = [])
+    public function signUp(Request $request, $dataUser = [], $data = [], $storageKey='')
     {
         $user = new ParseUser();
         foreach ($dataUser as $dtUser) {
@@ -58,7 +58,7 @@ class MesosferAuth
             $user->signUp();
 
             if (count($data)) {
-                $request->session()->put('clientData', $data);
+                $request->session()->put($storageKey.'.clientData', $data);
             }
 
             $response = [
@@ -87,13 +87,13 @@ class MesosferAuth
     // [$key,$value]
     // ...
     // ]
-    public function signIn(Request $request, $username, $password, $data = [])
+    public function signIn(Request $request, $username, $password, $data = [], $storageKey='')
     {
         try {
             $user = ParseUser::logIn($username, $password);
 
             if (count($data)) {
-                $request->session()->put('clientData', $data);
+                $request->session()->put($storageKey.'.clientData', $data);
             }
 
             $response = [
@@ -116,11 +116,11 @@ class MesosferAuth
         }
     }
 
-    public function getCurrentUser(Request $request, $refreshUser=false)
+    public function getCurrentUser(Request $request, $refreshUser=false, $storageKey='')
     {
         $currentUser = ParseUser::getCurrentUser();
         if (!$currentUser) {
-            $currentUser = $request->session()->get($this->storageKey);
+            $currentUser = $request->session()->get($storageKey);
             $sessionToken = $currentUser['sessionToken'];
         } else {
             $sessionToken = $currentUser->getSessionToken();
@@ -133,8 +133,8 @@ class MesosferAuth
             $newUserData = MesosferSdk::getObject('_User', $currentUser['objectId']);
             $newUserData= MesosferTools::json2Array($newUserData->output);
             $newUserData['sessionToken'] = $sessionToken;
-            if ($request->session()->has('clientData')) {
-                $clientData = $request->session()->get('clientData');
+            if ($request->session()->has($storageKey.'.clientData')) {
+                $clientData = $request->session()->get($storageKey.'.clientData');
                 foreach ($clientData as $key => $item) {
                     $newUserData[$item[0]] = $item[1];
                 }
@@ -142,8 +142,8 @@ class MesosferAuth
             $currentUser = $newUserData;
         } else {
             $currentUser['sessionToken'] = $sessionToken;
-            if ($request->session()->has('clientData')) {
-                $clientData = $request->session()->get('clientData');
+            if ($request->session()->has($storageKey.'.clientData')) {
+                $clientData = $request->session()->get($storageKey.'.clientData');
                 foreach ($clientData as $key => $item) {
                     $currentUser[$item[0]] = $item[1];
                 }
@@ -154,33 +154,30 @@ class MesosferAuth
             if (is_array($cUser)) {
                 $cUser = MesosferTools::array2Json($cUser);
             }
-            $request->session()->put($this->storageKey.'.'.$key, $cUser);
+            $request->session()->put($storageKey.'.'.$key, $cUser);
         }
 
         return MesosferTools::array2Json($currentUser);
     }
 
-    public function signOut(Request $request)
+    public function signOut(Request $request, $storageKey)
     {
-        if ($request->session()->has('clientData')) {
-            $request->session()->forget('clientData');
-        }
-        $request->session()->forget($this->storageKey);
+        $request->session()->forget($storageKey);
         ParseUser::logOut();
         return;
     }
 
-    public function signInBecome(Request $request, $token='', $data=[])
+    public function signInBecome(Request $request, $token='', $data=[], $storageKey='')
     {
         try {
             $user = ParseUser::become($token);
 
             if (count($data)) {
-                $request->session()->put('clientData', $data);
+                $request->session()->put($storageKey.'.clientData', $data);
             }
 
             $response = [
-              "output" => $this->getCurrentUser($request),
+              "output" => $this->getCurrentUser($request, false, $storageKey),
               "status" => true
             ];
 
