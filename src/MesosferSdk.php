@@ -460,7 +460,7 @@ class MesosferSdk
         }
     }
 
-    public static function retrieveUser($id='')
+    public static function retrieveUser($id='', $storageKey='')
     {
         $env = config('app.env');
         $currentUser = ParseUser::getCurrentUser();
@@ -468,7 +468,6 @@ class MesosferSdk
         if (isset($currentUser)) {
             $sessionToken = $currentUser->getSessionToken();
         } else {
-            $storageKey = config('mesosfer.'.$env.'.storageKey');
             $sessionToken = session($storageKey.'.sessionToken');
         }
 
@@ -635,7 +634,7 @@ class MesosferSdk
         //
     }
 
-    public static function getConfig($parameter = "", $withSession=false)
+    public static function getConfig($parameter = "", $withSession=false, $storageKey='')
     {
         $env = config('app.env');
         if (!$withSession) {
@@ -651,7 +650,6 @@ class MesosferSdk
             if (isset($currentUser)) {
                 $sessionToken = $currentUser->getSessionToken();
             } else {
-                $storageKey = config('mesosfer.'.$env.'.storageKey');
                 $sessionToken = session($storageKey.'.sessionToken');
             }
 
@@ -748,7 +746,7 @@ class MesosferSdk
     *    ]
     *];
     */
-    public static function batchOperations($data, $withSession=false)
+    public static function batchOperations($data, $withSession=false, $storageKey='')
     {
         $data = MesosferTools::array2Json($data);
 
@@ -813,7 +811,6 @@ class MesosferSdk
             if (isset($currentUser)) {
                 $sessionToken = $currentUser->getSessionToken();
             } else {
-                $storageKey = config('mesosfer.'.$env.'.storageKey');
                 $sessionToken = session($storageKey.'.sessionToken');
             }
 

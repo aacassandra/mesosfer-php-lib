@@ -16,8 +16,6 @@ use Illuminate\Http\Request;
 
 class MesosferAuth
 {
-    private $storageKey;
-
     public function __construct()
     {
         $env = config('app.env');
@@ -29,7 +27,6 @@ class MesosferAuth
         $subUrl = config('mesosfer.' . $env . '.subUrl');
         $protocol = config('mesosfer.'.$env.'.protocol');
         $serverUrl = $protocol."://".$host.":".$port;
-        $this->storageKey = config('mesosfer.'.$env.'.storageKey');
         ParseClient::initialize($appId, $restKey, $masterKey);
         if (session_status() == PHP_SESSION_NONE) {
             session_start();
@@ -62,7 +59,7 @@ class MesosferAuth
             }
 
             $response = [
-              "output" => $this->getCurrentUser($request),
+              "output" => $this->getCurrentUser($request, false, $storageKey),
               "status" => true
             ];
 
@@ -97,7 +94,7 @@ class MesosferAuth
             }
 
             $response = [
-              "output" => $this->getCurrentUser($request),
+              "output" => $this->getCurrentUser($request, false, $storageKey),
               "status" => true
             ];
 
@@ -149,7 +146,7 @@ class MesosferAuth
                 }
             }
         }
-
+        
         foreach ($currentUser as $key => $cUser) {
             if (is_array($cUser)) {
                 $cUser = MesosferTools::array2Json($cUser);
@@ -160,8 +157,11 @@ class MesosferAuth
         return MesosferTools::array2Json($currentUser);
     }
 
-    public function signOut(Request $request, $storageKey)
+    public function signOut(Request $request, $storageKey='')
     {
+        if ($request->session()->has($storageKey.'.clientData')) {
+            $request->session()->forget($storageKey.'.clientData');
+        }
         $request->session()->forget($storageKey);
         ParseUser::logOut();
         return;
