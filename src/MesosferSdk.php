@@ -305,7 +305,7 @@ class MesosferSdk
                         array_push($datFix, $dat);
                     }
                 }
-                
+
                 foreach ($logging as$key => $log) {
                     if ($key == 'deleted') {
                         array_push($datFix, ['boolean','deleted',$log]);
@@ -315,11 +315,11 @@ class MesosferSdk
                         array_push($datFix, ['pointer','lastAction',$log->objectId,$log->className]);
                     }
                 }
-                
+
                 $data = $datFix;
                 $datFix = [];
             }
-            
+
             MesosferHelp::objectSet($object, $data);
             $object->save();
             $object = MesosferSdk::getObject($class, $id, $options);
@@ -583,7 +583,7 @@ class MesosferSdk
                 $logFix =[];
                 $thisIsMaster = false;
             }
-            
+
             $dataArray = MesosferTools::json2Array($object->output);
             $dataArray = MesosferHelp::loggingConditional($dataArray, $isPointer, $thisIsMaster, $writter, $logAction);
             $store = MesosferSdk::storeObject($logClass, $dataArray);
@@ -859,7 +859,7 @@ class MesosferSdk
     *    ]
     *];
     */
-    public static function batchOperations($data, $withSession=false, $storageKey='')
+    public static function batchOperations($data, $withSession=false, $storageKey='', $withMasterKey=false)
     {
         $data = MesosferTools::array2Json($data);
 
@@ -928,6 +928,10 @@ class MesosferSdk
             }
 
             array_push($headers, sprintf(config('mesosfer.' . $env . '.headerSessionToken') . ": %s", $sessionToken));
+        }
+
+        if ($withMasterKey) {
+            array_push($headers, sprintf(config('mesosfer.' . $env . '.headerMasterKey') . ": %s", config('mesosfer.' . $env . '.masterKey')));
         }
 
         $url = sprintf("%s://%s:%s/%s/batch", $protocol, $host, $port, $subUrl);
