@@ -45,4 +45,26 @@ class MesosferTools
         }
         return $date;
     }
+
+    public static function needFormat($format='', $data=[])
+    {
+        $format = strtolower($format);
+        if ($format == 'pointer') {
+            $pointer = '{
+              "__type":"Pointer",
+              "objectId":"'.$data[0].'",
+              "className":"'.$data[1].'"
+            }';
+            $pointer = json_decode($pointer);
+            return $pointer;
+        } elseif ($format == 'file') {
+            $pointer = '{
+              "__type":"File",
+              "url":"'.$data[0].'",
+              "name":"'.$data[1].'"
+            }';
+            $pointer = json_decode($pointer);
+            return $pointer;
+        }
+    }
 }

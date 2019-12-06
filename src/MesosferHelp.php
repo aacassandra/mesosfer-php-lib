@@ -146,12 +146,7 @@ class MesosferHelp
         foreach ($data as $dat) {
             if (isset($dat[3])) {
                 if ($dat[0] == 'pointer') {
-                    $pointer = '{
-                      "__type": "Pointer",
-                      "className": "'.$dat[3].'",
-                      "objectId": "'.$dat[2].'"
-                    }';
-                    $pointer = json_decode($pointer);
+                    $pointer = MesosferTools::needFormat('pointer', [$dat[2], $dat[3]]);
                     $object->set($dat[1], $pointer);
                 }
             } else {
@@ -185,7 +180,7 @@ class MesosferHelp
                     $file->save();
                     $object->set($dat[1], $file);
                 } elseif ($dat[0] == 'geopoint') {
-                    $point = new ParseGeoPoint($dat[2][0], $dat[2][1]);
+                    $point = new ParseGeoPoint(($dat[2]*1), ($dat[3]*1));
                     $object->set($dat[1], $point);
                 } elseif ($dat[0] == 'delete') {
                     $object->delete($dat[1]);
@@ -221,5 +216,57 @@ class MesosferHelp
               "__type": "GeoPoint", "latitude": '.($dat[2] * 1).', "longitude": '.($dat[3] * 1).'
             }';
         }
+    }
+
+    public static function loggingConditional($dataArray = [], $isPointer=[], $thisIsMaster=false, $writter='', $logAction='')
+    {
+        $data=[];
+        array_push($data, ['boolean','master',$thisIsMaster]);
+        array_push($data, ['pointer','actionBy',$writter,'_User']);
+        array_push($data, ['string','actionStatus',$logAction]);
+
+        foreach ($dataArray as $key => $datArr) {
+            if ($key != 'createdAt' && $key != 'updatedAt'  && $key != 'ACL' && $key != 'log' && $key != 'lastAction' && $key != 'deleted') {
+                if (is_string($datArr)) {
+                    if ($key == 'objectId') {
+                        array_push($data, ['string', 'fromObjectId', $datArr]);
+                    } else {
+                        array_push($data, ['string', $key, $datArr]);
+                    }
+                } elseif (is_numeric($datArr)) {
+                    array_push($data, ['number', $key, $datArr]);
+                } elseif (is_array($datArr)) {
+                    $hasPointer = 0;
+                    $hasFile = 0;
+                    foreach ($isPointer as $pointer) {
+                        if ($pointer[0] == $key) {
+                            array_push($data, ['pointer',$key,$datArr['objectId'],$pointer[1]]);
+                            $hasPointer = $hasPointer + 1;
+                        }
+                    }
+
+                    if (!$hasPointer) {
+                        if (isset($datArr['__type']) && $datArr['__type']=='GeoPoint') {
+                            array_push($data, ['geopoint',$key,$datArr['latitude'],$datArr['longitude']]);
+                        } elseif (isset($datArr['__type']) && $datArr['__type']=='File') {
+                            $obj = '{
+                                "__type":"File",
+                                "url":"'.$datArr['url'].'",
+                                "name":"'.$datArr['name'].'"
+                            }';
+                            array_push($data, ['object',$key,json_decode($obj)]);
+                        } elseif (isset($datArr['date']) && isset($datArr['timezone_type']) && isset($datArr['timezone'])) {
+                            array_push($data, ['date',$key,new DateTime($datArr['date'])]);
+                        } else {
+                            array_push($data, ['array',$key,$datArr]);
+                        }
+                    }
+                } elseif (is_bool($datArr)) {
+                    array_push($data, ['boolean',$key,$datArr]);
+                }
+            }
+        }
+
+        return $data;
     }
 }

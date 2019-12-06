@@ -13,6 +13,7 @@ use Parse\ParseConfig;
 use Mesosfer\MesosferHelp;
 use Mesosfer\MesosferTools;
 use Mesosfer\MesosferAuth;
+use DateTime;
 
 class MesosferSdk
 {
@@ -284,10 +285,45 @@ class MesosferSdk
 
         try {
             $object = $query->get($id);
+
+            if (
+              (isset($options['log']['logAction']) && $options['log']['logAction'] != '')
+              &&
+              (isset($options['log']['logClass']) && $options['log']['logClass'] != '')
+            ) {
+                $logging = MesosferSdk::storeLogging(
+                    $id,
+                    $class,
+                    $options['log']['logAction'],
+                    $options['log']['logClass'],
+                    $options['log']['storageKey'],
+                    $options['log']['isPointer']
+                );
+                $datFix = [];
+                foreach ($data as $dat) {
+                    if ($dat[1] != 'log' && $dat[1] != 'lastAction' && $dat[1] != 'deleted') {
+                        array_push($datFix, $dat);
+                    }
+                }
+                
+                foreach ($logging as$key => $log) {
+                    if ($key == 'deleted') {
+                        array_push($datFix, ['boolean','deleted',$log]);
+                    } elseif ($key == 'log') {
+                        array_push($datFix, ['array','log',$log]);
+                    } elseif ($key == 'lastAction') {
+                        array_push($datFix, ['pointer','lastAction',$log->objectId,$log->className]);
+                    }
+                }
+                
+                $data = $datFix;
+                $datFix = [];
+            }
+            
             MesosferHelp::objectSet($object, $data);
             $object->save();
-
             $object = MesosferSdk::getObject($class, $id, $options);
+
             $response;
             if ($object->status) {
                 $response = [
@@ -524,8 +560,86 @@ class MesosferSdk
         return $response;
     }
 
-    public static function updateUsers($id, $data)
+    /**
+     * fromClass: is a current class
+     * logClass: is a log class name
+     */
+    public static function storeLogging($id='', $fromClass='', $logAction='', $logClass='', $storageKey='', $isPointer=[])
     {
+        $object = MesosferSdk::getObject($fromClass, $id);
+        if ($object->status) {
+            $thisIsMaster = false;
+            $writter = session($storageKey.'.objectId');
+            if (!isset($object->output->log)) {
+                $object->output->log = [];
+                $thisIsMaster = true;
+            } elseif (count($object->output->log) >= 1) {
+                $logFix =[];
+                foreach ($object->output->log as $log) {
+                    $log = MesosferTools::needFormat('pointer', [$log->objectId, $logClass]);
+                    array_push($logFix, $log);
+                }
+                $object->output->log = $logFix;
+                $logFix =[];
+                $thisIsMaster = false;
+            }
+            
+            $dataArray = MesosferTools::json2Array($object->output);
+            $dataArray = MesosferHelp::loggingConditional($dataArray, $isPointer, $thisIsMaster, $writter, $logAction);
+            $store = MesosferSdk::storeObject($logClass, $dataArray);
+            if ($store->status) {
+                $log = MesosferTools::needFormat('pointer', [$store->output->objectId, $logClass]);
+                array_push($object->output->log, $log);
+                $writter = MesosferTools::needFormat('pointer', [$writter, "_User"]);
+                $response = [
+                  "deleted" => ($fromClass=='DELETE'?true:false),
+                  "lastAction" => $writter,
+                  "log" => $object->output->log
+                ];
+                $response = MesosferTools::array2Json($response);
+                return $response;
+            }
+        }
+    }
+
+    /**
+    *$mesosfer = MesosferSdk::updateUsers(
+    *  $id,
+    *  $data,
+    *  [
+    *      "logClass"=>"UserLog",
+    *      "logAction"=>'UPDATE', // Available actions: UPDATE or DELETE
+    *      "storageKey"=>$this->storageKey,
+    *      "isPointer"=>[ // need to declare, all of which using the pointer format of the selected class
+    *          ['floor','Floor'],
+    *          ['invitedBy','_User'],
+    *          ['punishment','Punishment']
+    *      ]
+    *  ]
+    *);
+    */
+    public static function updateUsers($id, $data, $log=["logAction"=>"","logClass"=>"","storageKey"=>"","isPointer"=>array()])
+    {
+        if (
+              (isset($log['logAction']) && $log['logAction'] != '')
+              &&
+              (isset($log['logClass']) && $log['logClass'] != '')
+            ) {
+            $logging = MesosferSdk::storeLogging(
+                $id,
+                "_User",
+                $log['logAction'],
+                $log['logClass'],
+                $log['storageKey'],
+                $log['isPointer']
+            );
+            $data = json_decode($data);
+            $data->deleted = $logging->deleted;
+            $data->lastAction = $logging->lastAction;
+            $data->log = $logging->log;
+            $data = json_encode($data);
+        }
+
         $env = config('app.env');
         $protocol = config('mesosfer.' . $env . '.protocol');
         $host = config('mesosfer.' . $env . '.host');
@@ -536,7 +650,6 @@ class MesosferSdk
           sprintf(config('mesosfer.' . $env . '.headerMasterKey') . ": %s", config('mesosfer.' . $env . '.masterKey')),
           "Content-Type: application/json",
         );
-
 
         $url = sprintf("%s://%s:%s/%s/users/%s", $protocol, $host, $port, $subUrl, $id);
 
