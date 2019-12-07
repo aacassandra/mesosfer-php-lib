@@ -2,6 +2,7 @@
 
 namespace Mesosfer;
 
+use Parse\ParseACL;
 use Parse\ParseClient;
 use Parse\ParseException;
 use Parse\ParseObject;
@@ -956,5 +957,262 @@ class MesosferSdk
         ];
         $response = MesosferTools::array2Json($response);
         return $response;
+    }
+
+    public static function createRole($roleName='', $read=false, $write=false, $storageKey='')
+    {
+        $env = config('app.env');
+        $protocol = config('mesosfer.' . $env . '.protocol');
+        $host = config('mesosfer.' . $env . '.host');
+        $port = config('mesosfer.' . $env . '.port');
+        $subUrl = config('mesosfer.' . $env . '.subUrl');
+
+        $currentUser = ParseUser::getCurrentUser();
+        $sessionToken;
+        if (isset($currentUser)) {
+            $sessionToken = $currentUser->getSessionToken();
+        } else {
+            $sessionToken = session($storageKey.'.sessionToken');
+        }
+
+        $headers = array(
+                  sprintf(config('mesosfer.' . $env . '.headerAppID') . ": %s", config('mesosfer.' . $env . '.appId')),
+                  sprintf(config('mesosfer.' . $env . '.headerRestKey') . ": %s", config('mesosfer.' . $env . '.restKey')),
+                  sprintf(config('mesosfer.' . $env . '.headerSessionToken') . ": %s", $sessionToken),
+                  "Content-Type: application/json",
+              );
+        $url = sprintf("%s://%s:%s/%s/roles", $protocol, $host, $port, $subUrl);
+        $ch = curl_init();
+
+        if ($read) {
+            $read = 'true';
+        } else {
+            $read = 'false';
+        }
+
+        if ($write) {
+            $write = 'true';
+        } else {
+            $write = 'false';
+        }
+
+        $data = '{
+            "name": "'.$roleName.'",
+            "ACL": {
+                "*": {
+                "read": '.$read.',
+                "write": '.$write.'
+                }
+            }
+        }';
+
+        curl_setopt($ch, CURLOPT_URL, $url);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 10);
+        curl_setopt($ch, CURLOPT_CUSTOMREQUEST, "POST");
+        curl_setopt($ch, CURLOPT_POSTFIELDS, $data);
+        $output = json_decode(curl_exec($ch));
+        $httpCode = curl_getinfo($ch);
+        curl_close($ch);
+
+        return $output;
+    }
+
+    public static function readRole($id='', $storageKey='')
+    {
+        $env = config('app.env');
+        $protocol = config('mesosfer.' . $env . '.protocol');
+        $host = config('mesosfer.' . $env . '.host');
+        $port = config('mesosfer.' . $env . '.port');
+        $subUrl = config('mesosfer.' . $env . '.subUrl');
+
+        $currentUser = ParseUser::getCurrentUser();
+        $sessionToken;
+        if (isset($currentUser)) {
+            $sessionToken = $currentUser->getSessionToken();
+        } else {
+            $sessionToken = session($storageKey.'.sessionToken');
+        }
+
+        $headers = array(
+                  sprintf(config('mesosfer.' . $env . '.headerAppID') . ": %s", config('mesosfer.' . $env . '.appId')),
+                  sprintf(config('mesosfer.' . $env . '.headerRestKey') . ": %s", config('mesosfer.' . $env . '.restKey')),
+                  sprintf(config('mesosfer.' . $env . '.headerSessionToken') . ": %s", $sessionToken),
+                  "Content-Type: application/json",
+              );
+        $url = sprintf("%s://%s:%s/%s/roles/%s", $protocol, $host, $port, $subUrl, $id);
+        $ch = curl_init();
+
+        curl_setopt($ch, CURLOPT_URL, $url);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 10);
+        $output = json_decode(curl_exec($ch));
+        $httpCode = curl_getinfo($ch);
+        curl_close($ch);
+
+        return $output;
+    }
+
+    public static function updateRole($id='', $users=[])
+    {
+        $env = config('app.env');
+        $protocol = config('mesosfer.' . $env . '.protocol');
+        $host = config('mesosfer.' . $env . '.host');
+        $port = config('mesosfer.' . $env . '.port');
+        $subUrl = config('mesosfer.' . $env . '.subUrl');
+
+        $headers = array(
+            sprintf(config('mesosfer.' . $env . '.headerAppID') . ": %s", config('mesosfer.' . $env . '.appId')),
+            sprintf(config('mesosfer.' . $env . '.headerMasterKey') . ": %s", config('mesosfer.' . $env . '.masterKey')),
+            "Content-Type: application/json",
+        );
+        $url = sprintf("%s://%s:%s/%s/roles/%s", $protocol, $host, $port, $subUrl, $id);
+        $ch = curl_init();
+
+        $data = '{
+            "users": {
+                "__op": "AddRelation",
+                "objects": []
+              }
+        }';
+
+        $data = json_decode($data);
+        foreach ($users as $user) {
+            $userPointer = MesosferTools::needFormat('pointer', [$user,'_User']);
+            array_push($data->users->objects, $userPointer);
+        }
+        $data = json_encode($data);
+
+        curl_setopt($ch, CURLOPT_URL, $url);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 10);
+        curl_setopt($ch, CURLOPT_CUSTOMREQUEST, "PUT");
+        curl_setopt($ch, CURLOPT_POSTFIELDS, $data);
+        $output = json_decode(curl_exec($ch));
+        $httpCode = curl_getinfo($ch);
+        curl_close($ch);
+
+        return $output;
+    }
+
+    public static function deleteRole($id='', $storageKey='')
+    {
+        $env = config('app.env');
+        $protocol = config('mesosfer.' . $env . '.protocol');
+        $host = config('mesosfer.' . $env . '.host');
+        $port = config('mesosfer.' . $env . '.port');
+        $subUrl = config('mesosfer.' . $env . '.subUrl');
+
+        $currentUser = ParseUser::getCurrentUser();
+        $sessionToken;
+        if (isset($currentUser)) {
+            $sessionToken = $currentUser->getSessionToken();
+        } else {
+            $sessionToken = session($storageKey.'.sessionToken');
+        }
+
+        $headers = array(
+                  sprintf(config('mesosfer.' . $env . '.headerAppID') . ": %s", config('mesosfer.' . $env . '.appId')),
+                  sprintf(config('mesosfer.' . $env . '.headerRestKey') . ": %s", config('mesosfer.' . $env . '.restKey')),
+                  sprintf(config('mesosfer.' . $env . '.headerSessionToken') . ": %s", $sessionToken),
+                  "Content-Type: application/json",
+              );
+        $url = sprintf("%s://%s:%s/%s/roles/%s", $protocol, $host, $port, $subUrl, $id);
+        $ch = curl_init();
+
+        curl_setopt($ch, CURLOPT_URL, $url);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+        curl_setopt($ch, CURLOPT_CUSTOMREQUEST, "DELETE");
+        curl_setopt($ch, CURLOPT_TIMEOUT, 10);
+        $output = json_decode(curl_exec($ch));
+        $httpCode = curl_getinfo($ch);
+        curl_close($ch);
+
+        return $output;
+    }
+
+
+    /**
+    * Example:
+    * $roles = [
+    *    ['name'=>'Admin','r'=>true,'w'=>true],
+    *    ['name'=>'User','r'=>true,'w'=>false]
+    * ];
+    *
+    * $default = ['r'=>true,'w'=>false];
+    */
+    public static function setObjectRole($class = "", $id = "", $roles=[], $default=["r"=>false,"w"=>false])
+    {
+        $env = config('app.env');
+        $protocol = config('mesosfer.' . $env . '.protocol');
+        $host = config('mesosfer.' . $env . '.host');
+        $port = config('mesosfer.' . $env . '.port');
+        $subUrl = config('mesosfer.' . $env . '.subUrl');
+
+        $currentUser = ParseUser::getCurrentUser();
+        $sessionToken;
+        if (isset($currentUser)) {
+            $sessionToken = $currentUser->getSessionToken();
+        } else {
+            $sessionToken = session($storageKey.'.sessionToken');
+        }
+
+        $headers = array(
+            sprintf(config('mesosfer.' . $env . '.headerAppID') . ": %s", config('mesosfer.' . $env . '.appId')),
+            sprintf(config('mesosfer.' . $env . '.headerRestKey') . ": %s", config('mesosfer.' . $env . '.restKey')),
+            sprintf(config('mesosfer.' . $env . '.headerSessionToken') . ": %s", $sessionToken),
+            sprintf(config('mesosfer.' . $env . '.headerMasterKey') . ": %s", config('mesosfer.' . $env . '.masterKey')),
+            "Content-Type: application/json",
+        );
+        $url = sprintf("%s://%s:%s/%s/classes/%s/%s", $protocol, $host, $port, $subUrl, $class, $id);
+        $ch = curl_init();
+
+
+        $data = '{"ACL":{';
+
+        foreach ($roles as $role) {
+            if ($role['r']) {
+                $role['r'] = 'true';
+            } else {
+                $role['r'] = 'false';
+            }
+
+            if ($role['w']) {
+                $role['w'] = 'true';
+            } else {
+                $role['w'] = 'false';
+            }
+            $data = $data . '"role:'.$role['name'].'" : { "read": '.$role['r'].', "write": '.$role['w'].' },';
+        }
+
+        if ($default['r']) {
+            $default['r'] = 'true';
+        } else {
+            $default['r'] = 'false';
+        }
+
+        if ($default['w']) {
+            $default['w'] = 'true';
+        } else {
+            $default['w'] = 'false';
+        }
+
+        $data = $data . '"*" : {"read":'.$default['r'].',"write":'.$default['w'].'}}}';
+
+        curl_setopt($ch, CURLOPT_URL, $url);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+        curl_setopt($ch, CURLOPT_CUSTOMREQUEST, "PUT");
+        curl_setopt($ch, CURLOPT_POSTFIELDS, $data);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 10);
+        $output = json_decode(curl_exec($ch));
+        $httpCode = curl_getinfo($ch);
+        curl_close($ch);
+
+        return $output;
     }
 }
