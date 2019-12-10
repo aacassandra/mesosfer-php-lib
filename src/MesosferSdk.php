@@ -1015,7 +1015,7 @@ class MesosferSdk
         $output = json_decode(curl_exec($ch));
         $httpCode = curl_getinfo($ch);
         curl_close($ch);
- 
+
         $response;
         if ($httpCode['http_code'] == 200) {
             if (isset($output->error)) {
@@ -1053,14 +1053,14 @@ class MesosferSdk
         MesosferSdk::initialize();
         $query = new ParseQuery('_Role');
         $query->equalTo("name", $roleName);
-        
+
         try {
             $query->limit(10000);
             $root = $query->find();
             $backup = $root[0];
             $root = MesosferHelp::responseDecode($root, 'array');
             $root = $root[0];
-            
+
             $users = $backup->getRelation('users');
             $usersRelationQuery = $users->getQuery();
             $users = $usersRelationQuery->find();
@@ -1092,7 +1092,7 @@ class MesosferSdk
             return $response;
         }
     }
-    
+
     public static function addUserRole($roleName='', $users=[])
     {
         $getRole = MesosferSdk::getRole($roleName);
@@ -1104,7 +1104,7 @@ class MesosferSdk
             $host = config('mesosfer.' . $env . '.host');
             $port = config('mesosfer.' . $env . '.port');
             $subUrl = config('mesosfer.' . $env . '.subUrl');
-    
+
             $headers = array(
                 sprintf(config('mesosfer.' . $env . '.headerAppID') . ": %s", config('mesosfer.' . $env . '.appId')),
                 sprintf(config('mesosfer.' . $env . '.headerMasterKey') . ": %s", config('mesosfer.' . $env . '.masterKey')),
@@ -1112,21 +1112,21 @@ class MesosferSdk
             );
             $url = sprintf("%s://%s:%s/%s/roles/%s", $protocol, $host, $port, $subUrl, $id);
             $ch = curl_init();
-    
+
             $data = '{
                 "users": {
                     "__op": "AddRelation",
                     "objects": []
                   }
             }';
-    
+
             $data = json_decode($data);
             foreach ($users as $user) {
                 $userPointer = MesosferTools::needFormat('pointer', [$user,'_User']);
                 array_push($data->users->objects, $userPointer);
             }
             $data = json_encode($data);
-    
+
             curl_setopt($ch, CURLOPT_URL, $url);
             curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
             curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
@@ -1136,7 +1136,7 @@ class MesosferSdk
             $output = json_decode(curl_exec($ch));
             $httpCode = curl_getinfo($ch);
             curl_close($ch);
- 
+
             $response;
             if ($httpCode['http_code'] == 200) {
                 if (isset($output->error)) {
@@ -1203,7 +1203,7 @@ class MesosferSdk
         $output = json_decode(curl_exec($ch));
         $httpCode = curl_getinfo($ch);
         curl_close($ch);
-    
+
         $response;
         if ($httpCode['http_code'] == 200) {
             if (isset($output->error)) {
@@ -1236,14 +1236,20 @@ class MesosferSdk
 
     /**
     * Example:
-    * $roles = [
-    *    ['name'=>'Admin','r'=>true,'w'=>true],
-    *    ['name'=>'User','r'=>true,'w'=>false]
-    * ];
     *
-    * $default = ['r'=>true,'w'=>false];
+    * $data = [
+    *   "roles" => [
+    *      ['name'=>'Admin','r'=>true,'w'=>true],
+    *      ['name'=>'User','r'=>true,'w'=>false]
+    *   ];
+    *   "users" => [
+    *      ['objectId'=>'oWeRThGj12','r'=>true,'w'=>true],
+    *      ['objectId'=>'KJHjKHWE21','r'=>true,'w'=>false]
+    *   ],
+    *   "default" = ["r"=>false,"w"=>false]
+    * ]
     */
-    public static function setObjectRole($class = "", $id = "", $roles=[], $default=["r"=>false,"w"=>false])
+    public static function setObjectACL($class = "", $id = "", $data=[])
     {
         $env = config('app.env');
         $protocol = config('mesosfer.' . $env . '.protocol');
@@ -1269,48 +1275,70 @@ class MesosferSdk
         $url = sprintf("%s://%s:%s/%s/classes/%s/%s", $protocol, $host, $port, $subUrl, $class, $id);
         $ch = curl_init();
 
+        $dataEncode = '{"ACL":{';
 
-        $data = '{"ACL":{';
-
-        foreach ($roles as $role) {
-            if ($role['r']) {
-                $role['r'] = 'true';
-            } else {
-                $role['r'] = 'false';
+        if (isset($data['roles'])) {
+            $roles = $data['roles'];
+            foreach ($roles as $role) {
+                if ($role['r']) {
+                    $role['r'] = 'true';
+                } else {
+                    $role['r'] = 'false';
+                }
+    
+                if ($role['w']) {
+                    $role['w'] = 'true';
+                } else {
+                    $role['w'] = 'false';
+                }
+                $dataEncode = $dataEncode . '"role:'.$role['name'].'" : { "read": '.$role['r'].', "write": '.$role['w'].' },';
             }
+        }
 
-            if ($role['w']) {
-                $role['w'] = 'true';
-            } else {
-                $role['w'] = 'false';
+        if (isset($data['users'])) {
+            $users = $data['users'];
+            foreach ($users as $user) {
+                if ($user['r']) {
+                    $user['r'] = 'true';
+                } else {
+                    $user['r'] = 'false';
+                }
+    
+                if ($user['w']) {
+                    $user['w'] = 'true';
+                } else {
+                    $user['w'] = 'false';
+                }
+                $dataEncode = $dataEncode . '"'.$user['objectId'].'" : { "read": '.$user['r'].', "write": '.$user['w'].' },';
             }
-            $data = $data . '"role:'.$role['name'].'" : { "read": '.$role['r'].', "write": '.$role['w'].' },';
         }
 
-        if ($default['r']) {
-            $default['r'] = 'true';
-        } else {
-            $default['r'] = 'false';
+        if (isset($data['default'])) {
+            $default = $data['default'];
+            if ($default['r']) {
+                $default['r'] = 'true';
+            } else {
+                $default['r'] = 'false';
+            }
+    
+            if ($default['w']) {
+                $default['w'] = 'true';
+            } else {
+                $default['w'] = 'false';
+            }
+            $dataEncode = $dataEncode . '"*" : {"read":'.$default['r'].',"write":'.$default['w'].'}}}';
         }
-
-        if ($default['w']) {
-            $default['w'] = 'true';
-        } else {
-            $default['w'] = 'false';
-        }
-
-        $data = $data . '"*" : {"read":'.$default['r'].',"write":'.$default['w'].'}}}';
 
         curl_setopt($ch, CURLOPT_URL, $url);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
         curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
         curl_setopt($ch, CURLOPT_CUSTOMREQUEST, "PUT");
-        curl_setopt($ch, CURLOPT_POSTFIELDS, $data);
+        curl_setopt($ch, CURLOPT_POSTFIELDS, $dataEncode);
         curl_setopt($ch, CURLOPT_TIMEOUT, 10);
         $output = json_decode(curl_exec($ch));
         $httpCode = curl_getinfo($ch);
         curl_close($ch);
-    
+
         $response;
         if ($httpCode['http_code'] == 200) {
             if (isset($output->error)) {
@@ -1322,10 +1350,18 @@ class MesosferSdk
                   "status" => false
                 ];
             } else {
-                $response = [
-                  "output" => $output,
-                  "status" => true
-                ];
+                $withObject = MesosferSdk::getObject($class, $id);
+                if ($withObject->status) {
+                    $response = [
+                      "output" => $withObject->output,
+                      "status" => true
+                    ];
+                } else {
+                    $response = [
+                      "output" => $output,
+                      "status" => true
+                    ];
+                }
             }
         } else {
             $response = [
@@ -1348,13 +1384,13 @@ class MesosferSdk
         $getRole = MesosferSdk::getRole($roleName);
         if ($getRole->status) {
             $id = $getRole->output->objectId;
-            
+
             $env = config('app.env');
             $protocol = config('mesosfer.' . $env . '.protocol');
             $host = config('mesosfer.' . $env . '.host');
             $port = config('mesosfer.' . $env . '.port');
             $subUrl = config('mesosfer.' . $env . '.subUrl');
-            
+
             $headers = array(
                 sprintf(config('mesosfer.' . $env . '.headerAppID') . ": %s", config('mesosfer.' . $env . '.appId')),
                 sprintf(config('mesosfer.' . $env . '.headerMasterKey') . ": %s", config('mesosfer.' . $env . '.masterKey')),
@@ -1362,7 +1398,7 @@ class MesosferSdk
             );
             $url = sprintf("%s://%s:%s/%s/roles/%s", $protocol, $host, $port, $subUrl, $id);
             $ch = curl_init();
-            
+
             $data = '{
                 "users": {
                     "__op": "RemoveRelation",
@@ -1384,9 +1420,9 @@ class MesosferSdk
                     array_push($data->users->objects, $userPointer);
                 }
             }
-            
+
             $data = json_encode($data);
-    
+
             curl_setopt($ch, CURLOPT_URL, $url);
             curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
             curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
