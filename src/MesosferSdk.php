@@ -891,7 +891,7 @@ class MesosferSdk
                 } else {
                     $tmp = $tmp .','. $tmp1;
                 }
-            } elseif ($method == 'delete') {
+            } elseif ($method == 'DELETE') {
                 $tmp1 = '{
                   "method": "'.$method.'",
                   "path": "'.$item->path.'"
@@ -906,7 +906,7 @@ class MesosferSdk
         }
 
         $tmp = '{"requests":[
-        '.$tmp.'
+            '.$tmp.'
         ]}';
         $env = config('app.env');
         $protocol = config('mesosfer.' . $env . '.protocol');
@@ -1076,6 +1076,57 @@ class MesosferSdk
 
             $response = [
               "output" => $root,
+              "status" => true
+            ];
+            $response = MesosferTools::array2Json($response);
+            return $response;
+        } catch (ParseException $error) {
+            $response = [
+              "output" => [
+                'code' => $error->getCode(),
+                'message' => $error->getMessage()
+              ],
+              "status" => false
+            ];
+            $response = MesosferTools::array2Json($response);
+            return $response;
+        }
+    }
+
+    public static function getAllRole()
+    {
+        MesosferSdk::initialize();
+        $query = new ParseQuery('_Role');
+        $query->notEqualTo("name", null);
+
+        try {
+            $query->limit(10000);
+            $root = $query->find();
+            $master = $root;
+            $root = MesosferHelp::responseDecode($root, 'array');
+
+            $data=[];
+            foreach ($master as $backup) {
+                $current = MesosferHelp::responseDecode($backup, 'object');
+                
+                $users = $backup->getRelation('users');
+                $usersRelationQuery = $users->getQuery();
+                $users = $usersRelationQuery->find();
+                $users = MesosferHelp::responseDecode($users, 'array');
+
+                $roles = $backup->getRelation('roles');
+                $rolesRelationQuery = $roles->getQuery();
+                $roles = $rolesRelationQuery->find();
+                $roles = MesosferHelp::responseDecode($roles, 'array');
+
+                $current->users = $users;
+                $current->roles = $roles;
+
+                array_push($data, $current);
+            }
+
+            $response = [
+              "output" => $data,
               "status" => true
             ];
             $response = MesosferTools::array2Json($response);
