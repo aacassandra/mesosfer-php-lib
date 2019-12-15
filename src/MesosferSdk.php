@@ -959,7 +959,7 @@ class MesosferSdk
         return $response;
     }
 
-    public static function createRole($roleName='', $read=false, $write=false, $storageKey='')
+    public static function createRole($roleName='', $read=false, $write=false, $storageKey='', $users=[])
     {
         $env = config('app.env');
         $protocol = config('mesosfer.' . $env . '.protocol');
@@ -1003,8 +1003,21 @@ class MesosferSdk
                 "read": '.$read.',
                 "write": '.$write.'
                 }
+            },
+            "users": {
+                "__op": "AddRelation",
+                "objects": []
             }
         }';
+
+        if (count($users)>=1) {
+            $data = json_decode($data);
+            foreach ($users as $user) {
+                $userPointer = MesosferTools::needFormat('pointer', [$user,'_User']);
+                array_push($data->users->objects, $userPointer);
+            }
+            $data = json_encode($data);
+        }
 
         curl_setopt($ch, CURLOPT_URL, $url);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
@@ -1017,7 +1030,7 @@ class MesosferSdk
         curl_close($ch);
 
         $response;
-        if ($httpCode['http_code'] == 200) {
+        if ($httpCode['http_code'] == 201) {
             if (isset($output->error)) {
                 $response = [
                   "output" => [
