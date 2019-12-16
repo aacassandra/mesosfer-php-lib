@@ -300,25 +300,31 @@ class MesosferSdk
                     $options['log']['storageKey'],
                     $options['log']['isPointer']
                 );
-                $datFix = [];
-                foreach ($data as $dat) {
-                    if ($dat[1] != 'log' && $dat[1] != 'lastAction' && $dat[1] != 'deleted') {
-                        array_push($datFix, $dat);
-                    }
-                }
 
-                foreach ($logging as$key => $log) {
-                    if ($key == 'deleted') {
-                        array_push($datFix, ['boolean','deleted',$log]);
-                    } elseif ($key == 'log') {
-                        array_push($datFix, ['array','log',$log]);
-                    } elseif ($key == 'lastAction') {
-                        array_push($datFix, ['pointer','lastAction',$log->objectId,$log->className]);
+                if ($logging->status) {
+                    $datFix = [];
+                    foreach ($data as $dat) {
+                        if ($dat[1] != 'log' && $dat[1] != 'lastAction' && $dat[1] != 'deleted') {
+                            array_push($datFix, $dat);
+                        }
                     }
+    
+                    foreach ($logging as $key => $log) {
+                        if ($key == 'deleted') {
+                            array_push($datFix, ['boolean','deleted',$log]);
+                        } elseif ($key == 'log') {
+                            array_push($datFix, ['array','log',$log]);
+                        } elseif ($key == 'lastAction') {
+                            array_push($datFix, ['pointer','lastAction',$log->objectId,$log->className]);
+                        }
+                    }
+    
+                    $data = $datFix;
+                    $datFix = [];
+                } else {
+                    return $logging;
+                    exit;
                 }
-
-                $data = $datFix;
-                $datFix = [];
             }
 
             MesosferHelp::objectSet($object, $data);
@@ -430,11 +436,12 @@ class MesosferSdk
             curl_close($ch);
             $response;
             if ($httpCode['http_code'] == 200) {
-                if (isset($output->error)) {
+                if (isset($output->message)) {
+                    $output = MesosferHelp::errorMessageHandler($output);
                     $response = [
                       "output" => [
                         "code" => $output->code,
-                        "message" => $output->error
+                        "message" => $output->message
                       ],
                       "status" => false
                     ];
@@ -445,12 +452,14 @@ class MesosferSdk
                     ];
                 }
             } else {
+                $output = MesosferHelp::errorMessageHandler($output);
                 $response = [
-                  "output" => [
-                    "requests" => $output,
-                    "statusCode" => $httpCode
-                  ],
-                  "status" => false
+                    "output" => [
+                        "code" => $output->code,
+                        "message" => $output->message
+                    ],
+                    "statusCode" => $httpCode,
+                    "status" => false
                 ];
             }
             $response = MesosferTools::array2Json($response);
@@ -534,11 +543,12 @@ class MesosferSdk
         curl_close($ch);
         $response;
         if ($httpCode['http_code'] == 200) {
-            if (isset($output->error)) {
+            if (isset($output->message)) {
+                $output = MesosferHelp::errorMessageHandler($output);
                 $response = [
                   "output" => [
                       "code" => $output->code,
-                      "message" => $output->error
+                      "message" => $output->message
                   ],
                   "status" => false
                 ];
@@ -549,12 +559,14 @@ class MesosferSdk
                 ];
             }
         } else {
+            $output = MesosferHelp::errorMessageHandler($output);
             $response = [
-              "output" => [
-                "requests" => $output,
-                "statusCode" => $httpCode
-              ],
-              "status" => false
+                "output" => [
+                    "code" => $output->code,
+                    "message" => $output->message
+                ],
+                "statusCode" => $httpCode,
+                "status" => false
             ];
         }
         $response = MesosferTools::array2Json($response);
@@ -595,11 +607,16 @@ class MesosferSdk
                 $response = [
                   "deleted" => ($fromClass=='DELETE'?true:false),
                   "lastAction" => $writter,
-                  "log" => $object->output->log
+                  "log" => $object->output->log,
+                  "status" => true
                 ];
                 $response = MesosferTools::array2Json($response);
                 return $response;
+            } else {
+                return $store;
             }
+        } else {
+            return $object;
         }
     }
 
@@ -634,11 +651,16 @@ class MesosferSdk
                 $log['storageKey'],
                 $log['isPointer']
             );
-            $data = json_decode($data);
-            $data->deleted = $logging->deleted;
-            $data->lastAction = $logging->lastAction;
-            $data->log = $logging->log;
-            $data = json_encode($data);
+            if ($logging->status) {
+                $data = json_decode($data);
+                $data->deleted = $logging->deleted;
+                $data->lastAction = $logging->lastAction;
+                $data->log = $logging->log;
+                $data = json_encode($data);
+            } else {
+                return $logging;
+                exit;
+            }
         }
 
         $env = config('app.env');
@@ -668,11 +690,12 @@ class MesosferSdk
         $output = json_decode($output);
         $response;
         if ($httpCode['http_code'] == 200) {
-            if (isset($output->error)) {
+            if (isset($output->message)) {
+                $output = MesosferHelp::errorMessageHandler($output);
                 $response = [
                   "output" => [
                       "code" => $output->code,
-                      "message" => $output->error
+                      "message" => $output->message
                   ],
                   "status" => false
                 ];
@@ -683,12 +706,14 @@ class MesosferSdk
                 ];
             }
         } else {
+            $output = MesosferHelp::errorMessageHandler($output);
             $response = [
-              "output" => [
-                "requests" => $output,
-                "statusCode" => $httpCode
-              ],
-              "status" => false
+                "output" => [
+                    "code" => $output->code,
+                    "message" => $output->message
+                ],
+                "statusCode" => $httpCode,
+                "status" => false
             ];
         }
         $response = MesosferTools::array2Json($response);
@@ -1031,11 +1056,12 @@ class MesosferSdk
 
         $response;
         if ($httpCode['http_code'] == 201) {
-            if (isset($output->error)) {
+            if (isset($output->message)) {
+                $output = MesosferHelp::errorMessageHandler($output);
                 $response = [
                   "output" => [
                     "code" => $output->code,
-                    "message" => $output->error
+                    "message" => $output->message
                   ],
                   "status" => false
                 ];
@@ -1046,12 +1072,14 @@ class MesosferSdk
                 ];
             }
         } else {
+            $output = MesosferHelp::errorMessageHandler($output);
             $response = [
-              "output" => [
-                "requests" => $output,
-                "statusCode" => $httpCode
-              ],
-              "status" => false
+                "output" => [
+                    "code" => $output->code,
+                    "message" => $output->message
+                ],
+                "statusCode" => $httpCode,
+                "status" => false
             ];
         }
         $response = MesosferTools::array2Json($response);
@@ -1203,11 +1231,12 @@ class MesosferSdk
 
             $response;
             if ($httpCode['http_code'] == 200) {
-                if (isset($output->error)) {
+                if (isset($output->message)) {
+                    $output = MesosferHelp::errorMessageHandler($output);
                     $response = [
                       "output" => [
                         "code" => $output->code,
-                        "message" => $output->error
+                        "message" => $output->message
                       ],
                       "status" => false
                     ];
@@ -1218,12 +1247,14 @@ class MesosferSdk
                     ];
                 }
             } else {
+                $output = MesosferHelp::errorMessageHandler($output);
                 $response = [
-                  "output" => [
-                    "requests" => $output,
-                    "statusCode" => $httpCode
-                  ],
-                  "status" => false
+                    "output" => [
+                        "code" => $output->code,
+                        "message" => $output->message
+                    ],
+                    "statusCode" => $httpCode,
+                    "status" => false
                 ];
             }
             $response = MesosferTools::array2Json($response);
@@ -1267,14 +1298,14 @@ class MesosferSdk
         $output = json_decode(curl_exec($ch));
         $httpCode = curl_getinfo($ch);
         curl_close($ch);
-
         $response;
         if ($httpCode['http_code'] == 200) {
-            if (isset($output->error)) {
+            if (isset($output->message)) {
+                $output = MesosferHelp::errorMessageHandler($output);
                 $response = [
                   "output" => [
                     "code" => $output->code,
-                    "message" => $output->error
+                    "message" => $output->message
                   ],
                   "status" => false
                 ];
@@ -1285,12 +1316,14 @@ class MesosferSdk
                 ];
             }
         } else {
+            $output = MesosferHelp::errorMessageHandler($output);
             $response = [
-              "output" => [
-                "requests" => $output,
-                "statusCode" => $httpCode
-              ],
-              "status" => false
+            "output" => [
+                "code" => $output->code,
+                "message" => $output->message
+            ],
+            "statusCode" => $httpCode,
+            "status" => false
             ];
         }
         $response = MesosferTools::array2Json($response);
@@ -1405,11 +1438,12 @@ class MesosferSdk
 
         $response;
         if ($httpCode['http_code'] == 200) {
-            if (isset($output->error)) {
+            if (isset($output->message)) {
+                $output = MesosferHelp::errorMessageHandler($output);
                 $response = [
                   "output" => [
                     "code" => $output->code,
-                    "message" => $output->error
+                    "message" => $output->message
                   ],
                   "status" => false
                 ];
@@ -1428,12 +1462,14 @@ class MesosferSdk
                 }
             }
         } else {
+            $output = MesosferHelp::errorMessageHandler($output);
             $response = [
-              "output" => [
-                "requests" => $output,
-                "statusCode" => $httpCode
-              ],
-              "status" => false
+                "output" => [
+                    "code" => $output->code,
+                    "message" => $output->message
+                ],
+                "statusCode" => $httpCode,
+                "status" => false
             ];
         }
         $response = MesosferTools::array2Json($response);
@@ -1498,11 +1534,12 @@ class MesosferSdk
             curl_close($ch);
             $response;
             if ($httpCode['http_code'] == 200) {
-                if (isset($output->error)) {
+                if (isset($output->message)) {
+                    $output = MesosferHelp::errorMessageHandler($output);
                     $response = [
                       "output" => [
                         "code" => $output->code,
-                        "message" => $output->error
+                        "message" => $output->message
                       ],
                       "status" => false
                     ];
@@ -1513,12 +1550,14 @@ class MesosferSdk
                     ];
                 }
             } else {
+                $output = MesosferHelp::errorMessageHandler($output);
                 $response = [
-                  "output" => [
-                    "requests" => $output,
-                    "statusCode" => $httpCode
-                  ],
-                  "status" => false
+                    "output" => [
+                        "code" => $output->code,
+                        "message" => $output->message
+                    ],
+                    "statusCode" => $httpCode,
+                    "status" => false
                 ];
             }
             $response = MesosferTools::array2Json($response);

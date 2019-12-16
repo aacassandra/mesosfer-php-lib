@@ -269,4 +269,23 @@ class MesosferHelp
 
         return $data;
     }
+
+    public static function errorMessageHandler($output)
+    {
+        $fixOutput = '{
+            "code":0,
+            "message":""
+        }';
+        $fixOutput = json_decode($fixOutput);
+        $fixOutput->code = $output->code;
+        if (isset($output->error)) {
+            $fixOutput->message = $output->error;
+        } elseif (isset($output->message)) {
+            $fixOutput->message = $output->message;
+        } else {
+            $fixOutput->message = "";
+        }
+
+        return $fixOutput;
+    }
 }
