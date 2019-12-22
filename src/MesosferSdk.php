@@ -1104,11 +1104,13 @@ class MesosferSdk
 
             $users = $backup->getRelation('users');
             $usersRelationQuery = $users->getQuery();
+            $usersRelationQuery->limit(10000);
             $users = $usersRelationQuery->find();
             $users = MesosferHelp::responseDecode($users, 'array');
 
             $roles = $backup->getRelation('roles');
             $rolesRelationQuery = $roles->getQuery();
+            $rolesRelationQuery->limit(10000);
             $roles = $rolesRelationQuery->find();
             $roles = MesosferHelp::responseDecode($roles, 'array');
 
@@ -1152,11 +1154,13 @@ class MesosferSdk
                 
                 $users = $backup->getRelation('users');
                 $usersRelationQuery = $users->getQuery();
+                $usersRelationQuery->limit(10000);
                 $users = $usersRelationQuery->find();
                 $users = MesosferHelp::responseDecode($users, 'array');
 
                 $roles = $backup->getRelation('roles');
                 $rolesRelationQuery = $roles->getQuery();
+                $rolesRelationQuery->limit(10000);
                 $roles = $rolesRelationQuery->find();
                 $roles = MesosferHelp::responseDecode($roles, 'array');
 
