@@ -92,9 +92,9 @@ class MesosferHelp
             if (isset($where->equalTo)) {
                 $query->equalTo($where->object, $where->equalTo);
             } elseif (isset($where->equalToBoolean)) {
-                if ($where->equalToBoolean == 'True' || $where->equalToBoolean == 'true' || $where->equalToBoolean == true || $where->equalToBoolean == 1 || $where->equalToBoolean == '1') {
+                if ($where->equalToBoolean == 'True' || $where->equalToBoolean == 'true' || $where->equalToBoolean === true || $where->equalToBoolean == 1 || $where->equalToBoolean == '1') {
                     $query->equalTo($where->object, true);
-                } elseif ($where->equalToBoolean == 'False' || $where->equalToBoolean == 'false' || $where->equalToBoolean == false || $where->equalToBoolean == 2 || $where->equalToBoolean == '2') {
+                } elseif ($where->equalToBoolean == 'False' || $where->equalToBoolean == 'false' || $where->equalToBoolean === false || $where->equalToBoolean == 2 || $where->equalToBoolean == '2') {
                     $query->equalTo($where->object, false);
                 }
             } elseif (isset($where->equalToNumber)) {
