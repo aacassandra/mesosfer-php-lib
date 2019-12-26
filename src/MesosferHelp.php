@@ -218,6 +218,134 @@ class MesosferHelp
         }
     }
 
+    public static function restConditional($options)
+    {
+        $query=[];
+        foreach ($options as $where) {
+            $where = MesosferTools::array2Json($where);
+            if (isset($where->equalTo)) {
+                if (isset($query[$where->object])) {
+                    // Can't set
+                } else {
+                    $query[$where->object] = $where->equalTo;
+                }
+            } elseif (isset($where->notEqualTo)) {
+                if (isset($query[$where->object])) {
+                    $query[$where->object]['$ne'] = $where->notEqualTo;
+                } else {
+                    $query[$where->object] = [
+                        '$ne' => $where->notEqualTo
+                    ];
+                }
+            } elseif (isset($where->equalToBoolean)) {
+                $bool = false;
+                if ($where->equalToBoolean == 'True' || $where->equalToBoolean == 'true' || $where->equalToBoolean == true || $where->equalToBoolean == 1 || $where->equalToBoolean == '1') {
+                    $bool = true;
+                }
+                
+                if (isset($query[$where->object])) {
+                    // Can't set
+                } else {
+                    $query[$where->object] = $bool;
+                }
+            } elseif (isset($where->equalToNumber)) {
+                if (isset($query[$where->object])) {
+                    // Can't set
+                } else {
+                    $query[$where->object] = $where->equalToNumber * 1;
+                }
+            } elseif (isset($where->equalToPointer)) {
+                if (isset($query[$where->object])) {
+                    // Can't set
+                } else {
+                    $pointer = MesosferTools::needFormat('pointer', [$where->objectId, $where->class]);
+                    $query[$where->object] = $pointer;
+                }
+            } elseif (isset($where->notEqualToBoolean)) {
+                $bool = false;
+                if ($where->notEqualToBoolean == 'True' || $where->notEqualToBoolean == 'true' || $where->notEqualToBoolean == true || $where->notEqualToBoolean == 1 || $where->notEqualToBoolean == '1') {
+                    $bool = true;
+                }
+
+                if (isset($query[$where->object])) {
+                    $query[$where->object]['$ne'] = $bool;
+                } else {
+                    $query[$where->object] = [
+                        '$ne' => $bool
+                    ];
+                }
+            } elseif (isset($where->notEqualToNumber)) {
+                if (isset($query[$where->object])) {
+                    $query[$where->object]['$ne'] = $notEqualToNumber * 1;
+                } else {
+                    $query[$where->object] = [
+                        '$ne' => $notEqualToNumber * 1
+                    ];
+                }
+            } elseif (isset($where->notEqualToPointer)) {
+                $pointer = MesosferTools::needFormat('pointer', [$where->objectId, $where->class]);
+                if (isset($query[$where->object])) {
+                    $query[$where->object]['$ne'] = $pointer;
+                } else {
+                    $query[$where->object] = [
+                        '$ne' => $pointer
+                    ];
+                }
+            } elseif (isset($where->containedIn)) {
+                if (isset($query[$where->object])) {
+                    $query[$where->object]['$in'] = $where->containedIn;
+                } else {
+                    $query[$where->object] = [
+                        '$in' => $where->containedIn
+                    ];
+                }
+            } elseif (isset($where->notContainedIn)) {
+                if (isset($query[$where->object])) {
+                    $query[$where->object]['$nin'] = $where->notContainedIn;
+                } else {
+                    $query[$where->object] = [
+                        '$nin' => $where->notContainedIn
+                    ];
+                }
+            } elseif (isset($where->greaterThan)) {
+                if (isset($query[$where->object])) {
+                    $query[$where->object]['$gt'] = $where->greaterThan * 1;
+                } else {
+                    $query[$where->object] = [
+                        '$gt' => $where->greaterThan * 1
+                    ];
+                }
+            } elseif (isset($where->lessThan)) {
+                if (isset($query[$where->object])) {
+                    $query[$where->object]['$lt'] = $where->lessThan * 1;
+                } else {
+                    $query[$where->object] = [
+                        '$lt' => $where->lessThan  * 1
+                    ];
+                }
+            } elseif (isset($where->greaterThanOrEqualTo)) {
+                if (isset($query[$where->object])) {
+                    $query[$where->object]['$gte'] = $where->greaterThanOrEqualTo * 1;
+                } else {
+                    $query[$where->object] = [
+                        '$gte' => $where->greaterThanOrEqualTo * 1
+                    ];
+                }
+            } elseif (isset($where->lessThanOrEqualTo)) {
+                if (isset($query[$where->object])) {
+                    $query[$where->object]['$lte'] = $where->lessThanOrEqualTo * 1;
+                } else {
+                    $query[$where->object] = [
+                        '$lte' => $where->lessThanOrEqualTo  * 1
+                    ];
+                }
+            }
+        }
+
+        $query = json_encode($query);
+        return $query;
+    }
+
     public static function loggingConditional($dataArray = [], $isPointer=[], $thisIsMaster=false, $writter='', $logAction='')
     {
         $data=[];
@@ -277,8 +405,10 @@ class MesosferHelp
             "message":""
         }';
         $fixOutput = json_decode($fixOutput);
-        $fixOutput->code = $output->code;
-        if (isset($output->error)) {
+        $fixOutput->code = isset($output->code)?$output->code:504;
+        if ($fixOutput->code==504) {
+            $fixOutput->message = 'Gateway Time-out';
+        } elseif (isset($output->error)) {
             $fixOutput->message = $output->error;
         } elseif (isset($output->message)) {
             $fixOutput->message = $output->message;
@@ -287,5 +417,75 @@ class MesosferHelp
         }
 
         return $fixOutput;
+    }
+
+    public static function getRestRelation($parent=["class"=>'',"objectId"=>'',"relColumn"=>'',"relClass"=>''])
+    {
+        $env = config('app.env');
+        $protocol = config('mesosfer.' . $env . '.protocol');
+        $host = config('mesosfer.' . $env . '.host');
+        $port = config('mesosfer.' . $env . '.port');
+        $subUrl = config('mesosfer.' . $env . '.subUrl');
+        $headers = array(
+            sprintf(config('mesosfer.' . $env . '.headerAppID') . ": %s", config('mesosfer.' . $env . '.appId')),
+            sprintf(config('mesosfer.' . $env . '.headerRestKey') . ": %s", config('mesosfer.' . $env . '.restKey')),
+            sprintf(config('mesosfer.' . $env . '.headerMasterKey') . ": %s", config('mesosfer.' . $env . '.masterKey'))
+        );
+
+        $queryIn=[];
+        $queryIn['limit'] = 10000;
+        
+        $queryIn['where'] = '{"$relatedTo":{"object":{"__type":"Pointer","className":"_Role","objectId":"'.$parent['objectId'].'"},"key":"'.$parent['relColumn'].'"}}';
+
+        $url = sprintf("%s://%s:%s/" . $subUrl . "/classes/%s?%s", $protocol, $host, $port, '_User', http_build_query($queryIn));
+        
+        $ch = curl_init();
+
+        curl_setopt($ch, CURLOPT_URL, $url);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 180);
+        $output = json_decode(curl_exec($ch));
+        $httpCode = curl_getinfo($ch);
+        curl_close($ch);
+
+        $response;
+        if ($httpCode['http_code'] == 200) {
+            if (isset($output->message)) {
+                $output = MesosferHelp::errorMessageHandler($output);
+                $response = [
+                  "output" => [
+                    "code" => $output->code,
+                    "message" => $output->message
+                  ],
+                  "status" => false
+                ];
+            } else {
+                if (isset($output->results)) {
+                    $response = [
+                      "output" => $output,
+                      "status" => true
+                    ];
+                } else {
+                    $response = [
+                        "output" => $output,
+                        "statusCode" => $httpCode,
+                        "status" => false
+                    ];
+                }
+            }
+        } else {
+            $output = MesosferHelp::errorMessageHandler($output);
+            $response = [
+                "output" => [
+                    "code" => $output->code,
+                    "message" => $output->message
+                ],
+                "statusCode" => $httpCode,
+                "status" => false
+            ];
+        }
+        $response = MesosferTools::array2Json($response);
+        return $response;
     }
 }

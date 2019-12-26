@@ -94,47 +94,151 @@ class MesosferSdk
     */
     public static function getAllObject($class, $options = [])
     {
-        MesosferSdk::initialize();
-        $query = new ParseQuery($class);
+        if (isset($options['masterKey']) && $options['masterKey']) {
+            $env = config('app.env');
+            $protocol = config('mesosfer.' . $env . '.protocol');
+            $host = config('mesosfer.' . $env . '.host');
+            $port = config('mesosfer.' . $env . '.port');
+            $subUrl = config('mesosfer.' . $env . '.subUrl');
+            $headers = array(
+                sprintf(config('mesosfer.' . $env . '.headerAppID') . ": %s", config('mesosfer.' . $env . '.appId')),
+                sprintf(config('mesosfer.' . $env . '.headerRestKey') . ": %s", config('mesosfer.' . $env . '.restKey')),
+                sprintf(config('mesosfer.' . $env . '.headerMasterKey') . ": %s", config('mesosfer.' . $env . '.masterKey'))
+            );
 
-        //if where function has set
-        if (isset($options['where'])) {
-            MesosferHelp::conditional($query, $options['where']);
-        } else {
-            $query->notEqualTo("objectId", "");
-        }
+            $queryIn=[];
+            $queryIn['limit'] = 10000;
+            if (isset($options['include']) && count($options['include']) >= 1) {
+                $queryIn['include'] = $options['include'];
+            }
+            
+            if (isset($options['where']) && count($options['where']) >= 1) {
+                $queryIn['where'] = MesosferHelp::restConditional($options['where']);
+            }
 
-        //If include function has set
-        if (isset($options['include'])) {
-            foreach ($options['include'] as $include) {
-                $query->includeKey($include);
-            };
-        }
-
-        try {
-            $query->limit(10000);
-            $success = $query->find();
-            $decode = MesosferHelp::responseDecode($success, 'array');
-
-            if (count($success)==0) {
-                $response = [
-                  "output" => [
-                    'code' => 404,
-                    'message' => 'No data available'
-                  ],
-                  "status" => false
-                ];
-                $response = MesosferTools::array2Json($response);
-                return $response;
+            $url = sprintf("%s://%s:%s/" . $subUrl . "/classes/%s?%s", $protocol, $host, $port, $class, http_build_query($queryIn));
+    
+            $ch = curl_init();
+    
+            curl_setopt($ch, CURLOPT_URL, $url);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+            curl_setopt($ch, CURLOPT_TIMEOUT, 150);
+            $output = json_decode(curl_exec($ch));
+            $httpCode = curl_getinfo($ch);
+            curl_close($ch);
+            $response;
+            if ($httpCode['http_code'] == 200) {
+                if (isset($output->message)) {
+                    $output = MesosferHelp::errorMessageHandler($output);
+                    $response = [
+                      "output" => [
+                        "code" => $output->code,
+                        "message" => $output->message
+                      ],
+                      "status" => false
+                    ];
+                } else {
+                    $response = [
+                      "output" => $output->results,
+                      "status" => true
+                    ];
+                }
             } else {
-                if (count($success)==1) {
-                    if (isset($options['need1Response'])) {
-                        $response = [
-                          "output" => $decode[0],
-                          "status" => true
-                        ];
-                        $response = MesosferTools::array2Json($response);
-                        return $response;
+                $output = MesosferHelp::errorMessageHandler($output);
+                $response = [
+                    "output" => [
+                        "code" => $output->code,
+                        "message" => $output->message
+                    ],
+                    "statusCode" => $httpCode,
+                    "status" => false
+                ];
+            }
+
+            $response = MesosferTools::array2Json($response);
+            if (isset($options['relation']) && $options['relation'] >=1 && $response->status) {
+                $newResponse = [];
+                foreach ($response->output as $ii => $obj) {
+                    $newObj=MesosferTools::json2Array($obj);
+                    // Example: $options['relation'] = ['users:_User','roles:_Role']
+                    foreach ($options['relation'] as $relation) {
+                        $relationSplit = explode(":", $relation);
+                        if (count($relationSplit) == 2) {
+                            $relColumn = $relationSplit[0];
+                            $relClass = $relationSplit[1];
+                            $getRelation = MesosferHelp::getRestRelation([
+                                'class' => $class,
+                                'objectId' => $obj->objectId,
+                                'relColumn' =>$relColumn,
+                                'relClass' =>$relClass,
+                            ]);
+                            if ($getRelation->status) {
+                                foreach ($newObj as $key => $child) {
+                                    if ($key == $relColumn) {
+                                        $newObj[$key]=$getRelation->output->results;
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    $newObj = MesosferTools::array2Json($newObj);
+                    array_push($newResponse, $newObj);
+                }
+                $response->output = $newResponse;
+            }
+            return $response;
+        } else {
+            MesosferSdk::initialize();
+            $query = new ParseQuery($class);
+    
+            //if where function has set
+            if (isset($options['where'])) {
+                MesosferHelp::conditional($query, $options['where']);
+            } else {
+                $query->notEqualTo("objectId", "");
+            }
+    
+            //If include function has set
+            if (isset($options['include'])) {
+                foreach ($options['include'] as $include) {
+                    $query->includeKey($include);
+                };
+            }
+    
+            try {
+                $query->limit(10000);
+                $success = $query->find();
+                $decode = MesosferHelp::responseDecode($success, 'array');
+    
+                if (count($success)==0) {
+                    $response = [
+                      "output" => [
+                        'code' => 404,
+                        'message' => 'No data available'
+                      ],
+                      "status" => false
+                    ];
+                    $response = MesosferTools::array2Json($response);
+                    return $response;
+                } else {
+                    if (count($success)==1) {
+                        if (isset($options['need1Response'])) {
+                            $response = [
+                              "output" => $decode[0],
+                              "status" => true
+                            ];
+                            $response = MesosferTools::array2Json($response);
+                            return $response;
+                        } else {
+                            $response = [
+                              "output" => $decode,
+                              "status" => true
+                            ];
+                            $response = MesosferTools::array2Json($response);
+                            return $response;
+                        }
                     } else {
                         $response = [
                           "output" => $decode,
@@ -143,25 +247,18 @@ class MesosferSdk
                         $response = MesosferTools::array2Json($response);
                         return $response;
                     }
-                } else {
-                    $response = [
-                      "output" => $decode,
-                      "status" => true
-                    ];
-                    $response = MesosferTools::array2Json($response);
-                    return $response;
                 }
+            } catch (ParseException $error) {
+                $response = [
+                  "output" => [
+                    'code' => $error->getCode(),
+                    'message' => $error->getMessage()
+                  ],
+                  "status" => false
+                ];
+                $response = MesosferTools::array2Json($response);
+                return $response;
             }
-        } catch (ParseException $error) {
-            $response = [
-              "output" => [
-                'code' => $error->getCode(),
-                'message' => $error->getMessage()
-              ],
-              "status" => false
-            ];
-            $response = MesosferTools::array2Json($response);
-            return $response;
         }
     }
 
@@ -217,38 +314,138 @@ class MesosferSdk
     */
     public static function getObject($class = "", $id = "", $options = [])
     {
-        MesosferSdk::initialize();
-        $query = new ParseQuery($class);
+        if (isset($options['masterKey']) && $options['masterKey']) {
+            $env = config('app.env');
+            $protocol = config('mesosfer.' . $env . '.protocol');
+            $host = config('mesosfer.' . $env . '.host');
+            $port = config('mesosfer.' . $env . '.port');
+            $subUrl = config('mesosfer.' . $env . '.subUrl');
+            $headers = array(
+                sprintf(config('mesosfer.' . $env . '.headerAppID') . ": %s", config('mesosfer.' . $env . '.appId')),
+                sprintf(config('mesosfer.' . $env . '.headerRestKey') . ": %s", config('mesosfer.' . $env . '.restKey')),
+                sprintf(config('mesosfer.' . $env . '.headerMasterKey') . ": %s", config('mesosfer.' . $env . '.masterKey'))
+            );
 
-        if (isset($options['where'])) {
-            MesosferHelp::conditional($query, $options['where']);
-        }
+            $queryIn=[];
+            if (isset($options['include']) && count($options['include']) >= 1) {
+                $queryIn['include'] = $options['include'];
+            }
+            
+            if (isset($options['where']) && count($options['where']) >= 1) {
+                $queryIn['where'] = MesosferHelp::restConditional($options['where']);
+            }
 
-        if (isset($options['include'])) {
-            foreach ($options['include'] as $include) {
-                $query->includeKey($include);
-            };
-        }
+            if (count($queryIn) >= 1) {
+                $url = sprintf("%s://%s:%s/" . $subUrl . "/classes/%s/%s?%s", $protocol, $host, $port, $class, $id, http_build_query($queryIn));
+            } else {
+                $url = sprintf("%s://%s:%s/" . $subUrl . "/classes/%s/%s?%s", $protocol, $host, $port, $class, $id);
+            }
+            
+            $ch = curl_init();
+    
+            curl_setopt($ch, CURLOPT_URL, $url);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+            curl_setopt($ch, CURLOPT_TIMEOUT, 150);
+            $output = json_decode(curl_exec($ch));
+            $httpCode = curl_getinfo($ch);
+            curl_close($ch);
+            $response;
+            if ($httpCode['http_code'] == 200) {
+                if (isset($output->message)) {
+                    $output = MesosferHelp::errorMessageHandler($output);
+                    $response = [
+                      "output" => [
+                        "code" => $output->code,
+                        "message" => $output->message
+                      ],
+                      "status" => false
+                    ];
+                } else {
+                    $response = [
+                      "output" => $output,
+                      "status" => true
+                    ];
+                }
+            } else {
+                $output = MesosferHelp::errorMessageHandler($output);
+                $response = [
+                    "output" => [
+                        "code" => $output->code,
+                        "message" => $output->message
+                    ],
+                    "statusCode" => $httpCode,
+                    "status" => false
+                ];
+            }
 
-        try {
-            $success = $query->get($id);
-            $decode = MesosferHelp::responseDecode($success, 'object');
-            $response = [
-              "output" => $decode,
-              "status" => true
-            ];
             $response = MesosferTools::array2Json($response);
+            if (isset($options['relation']) && $options['relation'] >=1 && $response->status) {
+                $newResponse = [];
+                foreach ($response->output as $ii => $obj) {
+                    $newObj=MesosferTools::json2Array($obj);
+                    // Example: $options['relation'] = ['users:_User','roles:_Role']
+                    foreach ($options['relation'] as $relation) {
+                        $relationSplit = explode(":", $relation);
+                        if (count($relationSplit) == 2) {
+                            $relColumn = $relationSplit[0];
+                            $relClass = $relationSplit[1];
+                            $getRelation = MesosferHelp::getRestRelation([
+                                'class' => $class,
+                                'objectId' => $obj->objectId,
+                                'relColumn' =>$relColumn,
+                                'relClass' =>$relClass,
+                            ]);
+                            if ($getRelation->status) {
+                                foreach ($newObj as $key => $child) {
+                                    if ($key == $relColumn) {
+                                        $newObj[$key]=$getRelation->output->results;
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    $newObj = MesosferTools::array2Json($newObj);
+                    array_push($newResponse, $newObj);
+                }
+                $response->output = $newResponse;
+            }
             return $response;
-        } catch (ParseException $error) {
-            $response = [
-              "output" => [
-                'code' => $error->getCode(),
-                'message' => $error->getMessage()
-              ],
-              "status" => false
-            ];
-            $response = MesosferTools::array2Json($response);
-            return $response;
+        } else {
+            MesosferSdk::initialize();
+            $query = new ParseQuery($class);
+    
+            if (isset($options['where'])) {
+                MesosferHelp::conditional($query, $options['where']);
+            }
+    
+            if (isset($options['include'])) {
+                foreach ($options['include'] as $include) {
+                    $query->includeKey($include);
+                };
+            }
+    
+            try {
+                $success = $query->get($id);
+                $decode = MesosferHelp::responseDecode($success, 'object');
+                $response = [
+                  "output" => $decode,
+                  "status" => true
+                ];
+                $response = MesosferTools::array2Json($response);
+                return $response;
+            } catch (ParseException $error) {
+                $response = [
+                  "output" => [
+                    'code' => $error->getCode(),
+                    'message' => $error->getMessage()
+                  ],
+                  "status" => false
+                ];
+                $response = MesosferTools::array2Json($response);
+                return $response;
+            }
         }
     }
 
@@ -1089,109 +1286,138 @@ class MesosferSdk
     /**
      * ["role"=>"Admin|User|Guest","relations" => "users|roles"]
      */
-    public static function getRole($roleName = "")
+    public static function getRole($roleName = "", $masterKey=false)
     {
-        MesosferSdk::initialize();
-        $query = new ParseQuery('_Role');
-        $query->equalTo("name", $roleName);
-
-        try {
-            $query->limit(10000);
-            $root = $query->find();
-            $backup = $root[0];
-            $root = MesosferHelp::responseDecode($root, 'array');
-            $root = $root[0];
-
-            $users = $backup->getRelation('users');
-            $usersRelationQuery = $users->getQuery();
-            $usersRelationQuery->limit(10000);
-            $users = $usersRelationQuery->find();
-            $users = MesosferHelp::responseDecode($users, 'array');
-
-            $roles = $backup->getRelation('roles');
-            $rolesRelationQuery = $roles->getQuery();
-            $rolesRelationQuery->limit(10000);
-            $roles = $rolesRelationQuery->find();
-            $roles = MesosferHelp::responseDecode($roles, 'array');
-
-            $root->users = $users;
-            $root->roles = $roles;
-
-            $response = [
-              "output" => $root,
-              "status" => true
+        if ($masterKey) {
+            $options=[
+                "where" => [
+                    [
+                        'object' => 'name',
+                        'equalTo' => $roleName
+                    ]
+                ],
+                "relation" => ['users:_Users','roles:_Role'],
+                "masterKey" => true
             ];
-            $response = MesosferTools::array2Json($response);
-            return $response;
-        } catch (ParseException $error) {
-            $response = [
-              "output" => [
-                'code' => $error->getCode(),
-                'message' => $error->getMessage()
-              ],
-              "status" => false
-            ];
-            $response = MesosferTools::array2Json($response);
-            return $response;
-        }
-    }
-
-    public static function getAllRole()
-    {
-        MesosferSdk::initialize();
-        $query = new ParseQuery('_Role');
-        $query->notEqualTo("name", null);
-
-        try {
-            $query->limit(10000);
-            $root = $query->find();
-            $master = $root;
-            $root = MesosferHelp::responseDecode($root, 'array');
-
-            $data=[];
-            foreach ($master as $backup) {
-                $current = MesosferHelp::responseDecode($backup, 'object');
-                
+            $role = MesosferSdk::getAllObject('_Role', $options);
+            if ($role->status) {
+                $role->output = $role->output[0];
+                return $role;
+            } else {
+                return $role;
+            }
+        } else {
+            MesosferSdk::initialize();
+            $query = new ParseQuery('_Role');
+            $query->equalTo("name", $roleName);
+    
+            try {
+                $query->limit(10000);
+                $root = $query->find();
+                $backup = $root[0];
+                $root = MesosferHelp::responseDecode($root, 'array');
+                $root = $root[0];
+    
                 $users = $backup->getRelation('users');
                 $usersRelationQuery = $users->getQuery();
                 $usersRelationQuery->limit(10000);
                 $users = $usersRelationQuery->find();
                 $users = MesosferHelp::responseDecode($users, 'array');
-
+    
                 $roles = $backup->getRelation('roles');
                 $rolesRelationQuery = $roles->getQuery();
                 $rolesRelationQuery->limit(10000);
                 $roles = $rolesRelationQuery->find();
                 $roles = MesosferHelp::responseDecode($roles, 'array');
-
-                $current->users = $users;
-                $current->roles = $roles;
-
-                array_push($data, $current);
+    
+                $root->users = $users;
+                $root->roles = $roles;
+    
+                $response = [
+                  "output" => $root,
+                  "status" => true
+                ];
+                $response = MesosferTools::array2Json($response);
+                return $response;
+            } catch (ParseException $error) {
+                $response = [
+                  "output" => [
+                    'code' => $error->getCode(),
+                    'message' => $error->getMessage()
+                  ],
+                  "status" => false
+                ];
+                $response = MesosferTools::array2Json($response);
+                return $response;
             }
-
-            $response = [
-              "output" => $data,
-              "status" => true
-            ];
-            $response = MesosferTools::array2Json($response);
-            return $response;
-        } catch (ParseException $error) {
-            $response = [
-              "output" => [
-                'code' => $error->getCode(),
-                'message' => $error->getMessage()
-              ],
-              "status" => false
-            ];
-            $response = MesosferTools::array2Json($response);
-            return $response;
         }
     }
 
-    public static function addUserRole($roleName='', $users=[])
+    public static function getAllRole($masterKey=false)
     {
-        $getRole = MesosferSdk::getRole($roleName);
+        if ($masterKey) {
+            $options=[
+                "relation" => ['users:_Users','roles:_Role'],
+                "masterKey" => true
+            ];
+            $roles = MesosferSdk::getAllObject('_Role', $options);
+            return $roles;
+        } else {
+            MesosferSdk::initialize();
+            $query = new ParseQuery('_Role');
+            $query->notEqualTo("name", null);
+    
+            try {
+                $query->limit(10000);
+                $root = $query->find();
+                $master = $root;
+                $root = MesosferHelp::responseDecode($root, 'array');
+    
+                $data=[];
+                foreach ($master as $backup) {
+                    $current = MesosferHelp::responseDecode($backup, 'object');
+                    
+                    $users = $backup->getRelation('users');
+                    $usersRelationQuery = $users->getQuery();
+                    $usersRelationQuery->limit(10000);
+                    $users = $usersRelationQuery->find();
+                    $users = MesosferHelp::responseDecode($users, 'array');
+    
+                    $roles = $backup->getRelation('roles');
+                    $rolesRelationQuery = $roles->getQuery();
+                    $rolesRelationQuery->limit(10000);
+                    $roles = $rolesRelationQuery->find();
+                    $roles = MesosferHelp::responseDecode($roles, 'array');
+    
+                    $current->users = $users;
+                    $current->roles = $roles;
+    
+                    array_push($data, $current);
+                }
+    
+                $response = [
+                  "output" => $data,
+                  "status" => true
+                ];
+                $response = MesosferTools::array2Json($response);
+                return $response;
+            } catch (ParseException $error) {
+                $response = [
+                  "output" => [
+                    'code' => $error->getCode(),
+                    'message' => $error->getMessage()
+                  ],
+                  "status" => false
+                ];
+                $response = MesosferTools::array2Json($response);
+                return $response;
+            }
+        }
+    }
+
+    public static function addUserRole($roleName='', $users=[], $masterKey=false)
+    {
+        $getRole = MesosferSdk::getRole($roleName, $masterKey);
         if ($getRole->status) {
             $id = $getRole->output->objectId;
 
@@ -1483,9 +1709,9 @@ class MesosferSdk
     /**
      * users=['objectId','objectId',...]
      */
-    public static function deleteUserRole($roleName='', $users=[])
+    public static function deleteUserRole($roleName='', $users=[], $masterKey=false)
     {
-        $getRole = MesosferSdk::getRole($roleName);
+        $getRole = MesosferSdk::getRole($roleName, $masterKey);
         if ($getRole->status) {
             $id = $getRole->output->objectId;
 
