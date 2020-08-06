@@ -6,6 +6,7 @@ use Parse\ParseFile;
 use Parse\ParseGeoPoint;
 use Parse\ParseObject;
 use Mesosfer\MesosferTools;
+use DateTime;
 
 class MesosferHelp
 {
@@ -65,7 +66,7 @@ class MesosferHelp
 
     public static function responseDecode($data, $mode)
     {
-        if ($mode=='array') {
+        if ($mode == 'array') {
             $encoded = [];
 
             // iterate over and store each encoded result
@@ -76,7 +77,7 @@ class MesosferHelp
             $encoded = MesosferHelp::stripslashes($encoded);
             $decode = json_decode($encoded);
             return $decode;
-        } elseif ($mode=='object') {
+        } elseif ($mode == 'object') {
             $encoded = $data->_encode();
             $encoded = MesosferHelp::stripslashes($encoded);
             $decode = json_decode($encoded);
@@ -117,7 +118,7 @@ class MesosferHelp
                 $query->containedIn($where->object, $where->containedIn);
             } elseif (isset($where->notContainedIn)) {
                 $query->notContainedIn($where->object, $where->notContainedIn);
-            //Get query from less than / greater than
+                //Get query from less than / greater than
             } elseif (isset($where->greaterThan)) {
                 $query->greaterThan($where->object, $where->greaterThan);
             } elseif (isset($where->lessThan)) {
@@ -126,7 +127,7 @@ class MesosferHelp
                 $query->greaterThanOrEqualTo($where->object, $where->greaterThanOrEqualTo * 1);
             } elseif (isset($where->lessThanOrEqualTo)) {
                 $query->lessThanOrEqualTo($where->object, $where->lessThanOrEqualTo * 1);
-            //Get query from less than / greater than of DateTime
+                //Get query from less than / greater than of DateTime
             } elseif (isset($where->greaterThanRelativeTime)) {
                 $query->greaterThanRelativeTime($where->object, $where->greaterThanRelativeTime);
             } elseif (isset($where->lessThanRelativeTime)) {
@@ -135,6 +136,8 @@ class MesosferHelp
                 $query->greaterThanOrEqualToRelativeTime($where->object, $where->greaterThanOrEqualToRelativeTime);
             } elseif (isset($where->lessThanOrEqualToRelativeTime)) {
                 $query->lessThanOrEqualToRelativeTime($where->object, $where->lessThanOrEqualToRelativeTime);
+            } elseif (isset($where->exists)) {
+                $query->exists($where->object, $where->exists);
             }
         };
 
@@ -180,7 +183,7 @@ class MesosferHelp
                     $file->save();
                     $object->set($dat[1], $file);
                 } elseif ($dat[0] == 'geopoint') {
-                    $point = new ParseGeoPoint(($dat[2]*1), ($dat[3]*1));
+                    $point = new ParseGeoPoint(($dat[2] * 1), ($dat[3] * 1));
                     $object->set($dat[1], $point);
                 } elseif ($dat[0] == 'delete') {
                     $object->delete($dat[1]);
@@ -194,33 +197,33 @@ class MesosferHelp
     public static function batchConditional($dat = array())
     {
         if ($dat[0] == 'string') {
-            return '"'.$dat[1].'":"'.$dat[2].'"';
+            return '"' . $dat[1] . '":"' . $dat[2] . '"';
         } elseif ($dat[0] == 'number') {
-            return '"'.$dat[1].'":'.($dat[2] * 1);
+            return '"' . $dat[1] . '":' . ($dat[2] * 1);
         } elseif ($dat[0] == 'boolean') {
-            if ($dat[2]=='true'||$dat[2]==true||$dat[2]=='True'||$dat[2]==1) {
-                return '"'.$dat[1].'":true';
+            if ($dat[2] == 'true' || $dat[2] == true || $dat[2] == 'True' || $dat[2] == 1) {
+                return '"' . $dat[1] . '":true';
             } else {
-                return '"'.$dat[1].'":false';
+                return '"' . $dat[1] . '":false';
             }
         } elseif ($dat[0] == 'pointer') {
-            return '"'.$dat[1].'":{
-              "__type": "Pointer", "className": "'.$dat[3].'", "objectId": "'.$dat[2].'"
+            return '"' . $dat[1] . '":{
+              "__type": "Pointer", "className": "' . $dat[3] . '", "objectId": "' . $dat[2] . '"
             }';
-        } elseif ($dat[0]=='array') {
-            return '"'.$dat[1].'":'.json_encode(array_values($dat[2]));
-        } elseif ($dat[0]=='object') {
-            return '"'.$dat[1].'":'.json_encode($dat[2]);
+        } elseif ($dat[0] == 'array') {
+            return '"' . $dat[1] . '":' . json_encode(array_values($dat[2]));
+        } elseif ($dat[0] == 'object') {
+            return '"' . $dat[1] . '":' . json_encode($dat[2]);
         } elseif ($dat[0] == 'geopoint') {
-            return '"'.$dat[1].'":{
-              "__type": "GeoPoint", "latitude": '.($dat[2] * 1).', "longitude": '.($dat[3] * 1).'
+            return '"' . $dat[1] . '":{
+              "__type": "GeoPoint", "latitude": ' . ($dat[2] * 1) . ', "longitude": ' . ($dat[3] * 1) . '
             }';
         }
     }
 
-    public static function restConditional($options)
+    public static function restConditional($options, $encoding = true)
     {
-        $query=[];
+        $query = [];
         foreach ($options as $where) {
             $where = MesosferTools::array2Json($where);
             if (isset($where->equalTo)) {
@@ -242,7 +245,7 @@ class MesosferHelp
                 if ($where->equalToBoolean == 'True' || $where->equalToBoolean == 'true' || $where->equalToBoolean == true || $where->equalToBoolean == 1 || $where->equalToBoolean == '1') {
                     $bool = true;
                 }
-                
+
                 if (isset($query[$where->object])) {
                     // Can't set
                 } else {
@@ -275,11 +278,12 @@ class MesosferHelp
                     ];
                 }
             } elseif (isset($where->notEqualToNumber)) {
+                $notEqualToNumber = $where->notEqualToNumber * 1;
                 if (isset($query[$where->object])) {
-                    $query[$where->object]['$ne'] = $notEqualToNumber * 1;
+                    $query[$where->object]['$ne'] = $notEqualToNumber;
                 } else {
                     $query[$where->object] = [
-                        '$ne' => $notEqualToNumber * 1
+                        '$ne' => $notEqualToNumber
                     ];
                 }
             } elseif (isset($where->notEqualToPointer)) {
@@ -339,19 +343,29 @@ class MesosferHelp
                         '$lte' => $where->lessThanOrEqualTo  * 1
                     ];
                 }
+            } elseif (isset($where->exists)) {
+                if (isset($query[$where->object])) {
+                    $query[$where->object]['$exists'] = $where->exists;
+                } else {
+                    $query[$where->object] =  [
+                        '$exists' => $where->exists
+                    ];
+                }
             }
         }
 
-        $query = json_encode($query);
+        if ($encoding) {
+            $query = json_encode($query);
+        }
         return $query;
     }
 
-    public static function loggingConditional($dataArray = [], $isPointer=[], $thisIsMaster=false, $writter='', $logAction='')
+    public static function loggingConditional($dataArray = [], $isPointer = [], $thisIsMaster = false, $writter = '', $logAction = '')
     {
-        $data=[];
-        array_push($data, ['boolean','master',$thisIsMaster]);
-        array_push($data, ['pointer','actionBy',$writter,'_User']);
-        array_push($data, ['string','actionStatus',$logAction]);
+        $data = [];
+        array_push($data, ['boolean', 'master', $thisIsMaster]);
+        array_push($data, ['pointer', 'actionBy', $writter, '_User']);
+        array_push($data, ['string', 'actionStatus', $logAction]);
 
         foreach ($dataArray as $key => $datArr) {
             if ($key != 'createdAt' && $key != 'updatedAt'  && $key != 'ACL' && $key != 'log' && $key != 'lastAction' && $key != 'deleted') {
@@ -368,29 +382,29 @@ class MesosferHelp
                     $hasFile = 0;
                     foreach ($isPointer as $pointer) {
                         if ($pointer[0] == $key) {
-                            array_push($data, ['pointer',$key,$datArr['objectId'],$pointer[1]]);
+                            array_push($data, ['pointer', $key, $datArr['objectId'], $pointer[1]]);
                             $hasPointer = $hasPointer + 1;
                         }
                     }
 
                     if (!$hasPointer) {
-                        if (isset($datArr['__type']) && $datArr['__type']=='GeoPoint') {
-                            array_push($data, ['geopoint',$key,$datArr['latitude'],$datArr['longitude']]);
-                        } elseif (isset($datArr['__type']) && $datArr['__type']=='File') {
+                        if (isset($datArr['__type']) && $datArr['__type'] == 'GeoPoint') {
+                            array_push($data, ['geopoint', $key, $datArr['latitude'], $datArr['longitude']]);
+                        } elseif (isset($datArr['__type']) && $datArr['__type'] == 'File') {
                             $obj = '{
                                 "__type":"File",
-                                "url":"'.$datArr['url'].'",
-                                "name":"'.$datArr['name'].'"
+                                "url":"' . $datArr['url'] . '",
+                                "name":"' . $datArr['name'] . '"
                             }';
-                            array_push($data, ['object',$key,json_decode($obj)]);
+                            array_push($data, ['object', $key, json_decode($obj)]);
                         } elseif (isset($datArr['date']) && isset($datArr['timezone_type']) && isset($datArr['timezone'])) {
-                            array_push($data, ['date',$key,new DateTime($datArr['date'])]);
+                            array_push($data, ['date', $key, new DateTime($datArr['date'])]);
                         } else {
-                            array_push($data, ['array',$key,$datArr]);
+                            array_push($data, ['array', $key, $datArr]);
                         }
                     }
                 } elseif (is_bool($datArr)) {
-                    array_push($data, ['boolean',$key,$datArr]);
+                    array_push($data, ['boolean', $key, $datArr]);
                 }
             }
         }
@@ -405,8 +419,8 @@ class MesosferHelp
             "message":""
         }';
         $fixOutput = json_decode($fixOutput);
-        $fixOutput->code = isset($output->code)?$output->code:504;
-        if ($fixOutput->code==504) {
+        $fixOutput->code = isset($output->code) ? $output->code : 504;
+        if ($fixOutput->code == 504) {
             $fixOutput->message = 'Gateway Time-out';
         } elseif (isset($output->error)) {
             $fixOutput->message = $output->error;
@@ -419,7 +433,7 @@ class MesosferHelp
         return $fixOutput;
     }
 
-    public static function getRestRelation($parent=["class"=>'',"objectId"=>'',"relColumn"=>'',"relClass"=>''])
+    public static function getRestRelation($parent = ["class" => '', "objectId" => '', "relColumn" => '', "relClass" => ''])
     {
         $env = config('app.env');
         $protocol = config('mesosfer.' . $env . '.protocol');
@@ -432,13 +446,13 @@ class MesosferHelp
             sprintf(config('mesosfer.' . $env . '.headerMasterKey') . ": %s", config('mesosfer.' . $env . '.masterKey'))
         );
 
-        $queryIn=[];
+        $queryIn = [];
         $queryIn['limit'] = 10000;
-        
-        $queryIn['where'] = '{"$relatedTo":{"object":{"__type":"Pointer","className":"_Role","objectId":"'.$parent['objectId'].'"},"key":"'.$parent['relColumn'].'"}}';
+
+        $queryIn['where'] = '{"$relatedTo":{"object":{"__type":"Pointer","className":"_Role","objectId":"' . $parent['objectId'] . '"},"key":"' . $parent['relColumn'] . '"}}';
 
         $url = sprintf("%s://%s:%s/" . $subUrl . "/classes/%s?%s", $protocol, $host, $port, '_User', http_build_query($queryIn));
-        
+
         $ch = curl_init();
 
         curl_setopt($ch, CURLOPT_URL, $url);
@@ -449,22 +463,22 @@ class MesosferHelp
         $httpCode = curl_getinfo($ch);
         curl_close($ch);
 
-        $response;
+        $response = null;
         if ($httpCode['http_code'] == 200) {
             if (isset($output->message)) {
                 $output = MesosferHelp::errorMessageHandler($output);
                 $response = [
-                  "output" => [
-                    "code" => $output->code,
-                    "message" => $output->message
-                  ],
-                  "status" => false
+                    "output" => [
+                        "code" => $output->code,
+                        "message" => $output->message
+                    ],
+                    "status" => false
                 ];
             } else {
                 if (isset($output->results)) {
                     $response = [
-                      "output" => $output,
-                      "status" => true
+                        "output" => $output,
+                        "status" => true
                     ];
                 } else {
                     $response = [
